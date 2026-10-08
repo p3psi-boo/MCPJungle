@@ -60,6 +60,9 @@ type MCPService struct {
 	// skillPromptNames tracks the skill prompts currently registered on the proxy servers.
 	skillPromptNames map[string]struct{}
 	skillSyncMu      sync.Mutex
+
+	// managementToolsEnabled is true once the built-in management server's tools have been registered.
+	managementToolsEnabled bool
 }
 
 // NewMCPService creates a new instance of MCPService.

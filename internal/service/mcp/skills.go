@@ -114,7 +114,8 @@ func (m *MCPService) SkillStore() *skills.Store {
 
 // isReservedServerName reports whether name cannot be used for a user-registered MCP server.
 func (m *MCPService) isReservedServerName(name string) bool {
-	return m.skillStore != nil && name == SkillsServerName
+	return (m.skillStore != nil && name == SkillsServerName) ||
+		(m.managementToolsEnabled && name == ManagementServerName)
 }
 
 type skillTool struct {

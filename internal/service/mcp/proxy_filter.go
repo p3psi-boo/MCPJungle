@@ -34,7 +34,7 @@ func ProxyToolFilter(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
 		allowed, cached := allowedServers[serverName]
 		if !cached {
 			// check whether the client has access to this server and cache the result for faster future checks
-			allowed = c.CheckHasServerAccess(serverName)
+			allowed = clientHasServerAccess(c, serverName)
 			allowedServers[serverName] = allowed
 		}
 		if allowed {
