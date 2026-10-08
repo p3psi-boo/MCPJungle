@@ -19,10 +19,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,10 +44,10 @@ const (
 )
 
 // ErrNotFound is returned when a skill or a file within a skill does not exist.
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = apierrors.ErrNotFound
 
 // ErrInvalidPath is returned when a requested file path is not allowed.
-var ErrInvalidPath = errors.New("invalid path")
+var ErrInvalidPath = fmt.Errorf("invalid path: %w", apierrors.ErrInvalidInput)
 
 // Skill names become part of MCP tool arguments and prompt names, so they are restricted to the
 // character set mandated by the Agent Skills specification.
@@ -61,6 +64,12 @@ type Skill struct {
 
 	// Dir is the absolute path of the skill directory. It is never exposed to MCP clients.
 	Dir string `json:"-"`
+
+	// Removable is true for skills that live in the install directory and can be
+	// updated or removed at runtime.
+	Removable bool `json:"removable"`
+	// Origin records where an installed skill was downloaded from, if known.
+	Origin *Origin `json:"origin,omitempty"`
 }
 
 type frontmatter struct {
@@ -73,17 +82,63 @@ type frontmatter struct {
 }
 
 // Store holds the set of skills loaded from one or more root directories.
+// It is safe for concurrent use and can be reloaded at runtime.
 type Store struct {
+	mu     sync.RWMutex
+	roots  []string
 	skills map[string]*Skill
+
+	// installDir is the directory that skills installed at runtime are written to.
+	// It is empty when runtime installation is disabled.
+	installDir string
+	fetcher    Fetcher
+	// installMu serializes install, update and remove operations.
+	installMu sync.Mutex
+
+	onChange func()
+}
+
+// Options configures a Store.
+type Options struct {
+	// Dirs are the directories to discover skills in.
+	Dirs []string
+	// InstallDir is the directory that skills installed at runtime are written to.
+	// It is created if it does not exist, and is always searched first.
+	// Leave it empty to disable runtime installation.
+	InstallDir string
+	// Fetcher downloads skill sources. Defaults to a GitHub fetcher.
+	Fetcher Fetcher
 }
 
 // Load discovers skills under the given root directories.
-// A root may itself be a skill directory, or contain skill directories at any depth.
+// It is equivalent to New with only Dirs set.
+func Load(roots []string) (*Store, error) {
+	return New(Options{Dirs: roots})
+}
+
+// New creates a Store and discovers skills in the configured directories.
+// A directory may itself be a skill directory, or contain skill directories at any depth.
 // Hidden directories below a root are skipped. Skills that fail validation are skipped with a
 // warning; if two roots provide a skill with the same name, the first one wins.
-func Load(roots []string) (*Store, error) {
-	s := &Store{skills: make(map[string]*Skill)}
-	for _, root := range roots {
+func New(opts Options) (*Store, error) {
+	s := &Store{fetcher: opts.Fetcher}
+	if s.fetcher == nil {
+		s.fetcher = NewGitHubFetcher()
+	}
+
+	if dir := strings.TrimSpace(opts.InstallDir); dir != "" {
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve skills install directory %s: %w", dir, err)
+		}
+		if err := os.MkdirAll(absDir, 0o755); err != nil {
+			return nil, fmt.Errorf("failed to create skills install directory %s: %w", dir, err)
+		}
+		s.installDir = absDir
+		s.roots = append(s.roots, absDir)
+	}
+
+	for _, root := range opts.Dirs {
 		root = strings.TrimSpace(root)
 		if root == "" {
 			continue
@@ -99,14 +154,56 @@ func Load(roots []string) (*Store, error) {
 		if !info.IsDir() {
 			return nil, fmt.Errorf("skills directory %s is not a directory", root)
 		}
-		if err := s.loadRoot(absRoot); err != nil {
-			return nil, err
+		if slices.Contains(s.roots, absRoot) {
+			continue
 		}
+		s.roots = append(s.roots, absRoot)
+	}
+
+	if err := s.reload(false); err != nil {
+		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Store) loadRoot(root string) error {
+// SetOnChange registers a callback that is invoked after the set of skills changes.
+func (s *Store) SetOnChange(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onChange = fn
+}
+
+// InstallDir returns the directory runtime installs are written to, or "" if disabled.
+func (s *Store) InstallDir() string {
+	return s.installDir
+}
+
+// Reload rediscovers skills from disk, picking up skills that were added or removed manually.
+func (s *Store) Reload() error {
+	return s.reload(true)
+}
+
+func (s *Store) reload(notify bool) error {
+	found := make(map[string]*Skill)
+	for _, root := range s.roots {
+		if err := discover(root, found, s.installDir); err != nil {
+			return err
+		}
+	}
+
+	s.mu.Lock()
+	s.skills = found
+	onChange := s.onChange
+	s.mu.Unlock()
+
+	if notify && onChange != nil {
+		onChange()
+	}
+	return nil
+}
+
+// discover adds the skills found under root to found, keeping existing entries on name clashes.
+func discover(root string, found map[string]*Skill, installDir string) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Printf("[WARN] skills: skipping %s: %v", path, err)
@@ -130,13 +227,17 @@ func (s *Store) loadRoot(root string) error {
 			log.Printf("[WARN] skills: skipping skill at %s: %v", path, err)
 			return fs.SkipDir
 		}
-		if existing, ok := s.skills[skill.Name]; ok {
+		if existing, ok := found[skill.Name]; ok {
 			log.Printf(
 				"[WARN] skills: skill %q at %s is shadowed by the one at %s", skill.Name, path, existing.Dir,
 			)
 			return fs.SkipDir
 		}
-		s.skills[skill.Name] = skill
+		if installDir != "" && filepath.Dir(path) == installDir {
+			skill.Removable = true
+			skill.Origin = readOrigin(path)
+		}
+		found[skill.Name] = skill
 		// a skill's own subdirectories (scripts/, references/, ...) are not separate skills
 		return fs.SkipDir
 	})
@@ -219,6 +320,8 @@ func splitFrontmatter(content []byte) ([]byte, string, error) {
 
 // List returns all loaded skills sorted by name.
 func (s *Store) List() []Skill {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	out := make([]Skill, 0, len(s.skills))
 	for _, sk := range s.skills {
 		out = append(out, *sk)
@@ -229,6 +332,8 @@ func (s *Store) List() []Skill {
 
 // Get returns the skill with the given name.
 func (s *Store) Get(name string) (*Skill, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	sk, ok := s.skills[name]
 	if !ok {
 		return nil, fmt.Errorf("skill %q: %w", name, ErrNotFound)

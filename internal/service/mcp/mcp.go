@@ -57,6 +57,9 @@ type MCPService struct {
 	// skillStore holds the Agent Skills exposed by the built-in skills server.
 	// It is nil when skills are not enabled.
 	skillStore *skills.Store
+	// skillPromptNames tracks the skill prompts currently registered on the proxy servers.
+	skillPromptNames map[string]struct{}
+	skillSyncMu      sync.Mutex
 }
 
 // NewMCPService creates a new instance of MCPService.

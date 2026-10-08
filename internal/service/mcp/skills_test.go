@@ -154,6 +154,33 @@ func TestSkills_EnterpriseAccessControl(t *testing.T) {
 	assert.Len(t, ProxyToolFilter(ctx, []mcp.Tool{tool.Tool}), 1)
 }
 
+func TestSkills_SyncOnStoreChange(t *testing.T) {
+	s, store := newSkillsTestService(t)
+	pdfDir, err := store.Get("pdf")
+	require.NoError(t, err)
+	root := filepath.Dir(pdfDir.Dir)
+
+	newDir := filepath.Join(root, "docx")
+	require.NoError(t, os.MkdirAll(newDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(newDir, skills.SkillFileName),
+		[]byte("---\nname: docx\ndescription: Word documents.\n---\nbody\n"),
+		0o644,
+	))
+	require.NoError(t, os.RemoveAll(pdfDir.Dir))
+	require.NoError(t, store.Reload())
+
+	assert.Equal(t, map[string]struct{}{"skills__docx": {}}, s.skillPromptNames)
+	desc := s.mcpProxyServer.GetTool("skills__get_skill").Tool.Description
+	assert.Contains(t, desc, "- docx: Word documents.")
+	assert.NotContains(t, desc, "- pdf:")
+
+	req := mcp.GetPromptRequest{}
+	req.Params.Name = "skills__docx"
+	_, err = s.skillPromptHandler(devCtx(), req)
+	assert.NoError(t, err)
+}
+
 func TestRegisterSkills_ConflictsWithRegisteredServer(t *testing.T) {
 	db := setupTestDBForProxyAdditional(t)
 	require.NoError(t, db.Create(createStreamableHTTPTestServer(t, SkillsServerName, "http://localhost:1")).Error)

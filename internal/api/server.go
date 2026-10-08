@@ -277,6 +277,9 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.GET("/prompt", s.getPromptHandler())
 		userAPI.POST("/prompts/render", s.getPromptWithArgsHandler())
 
+		userAPI.GET("/skills", s.listSkillsHandler(false))
+		userAPI.GET("/skills/:name", s.getSkillHandler())
+
 		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
 	}
 
@@ -298,6 +301,12 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 
 		adminAPI.POST("/prompts/enable", s.enablePromptsHandler())
 		adminAPI.POST("/prompts/disable", s.disablePromptsHandler())
+
+		adminAPI.POST("/skills", s.installSkillsHandler())
+		adminAPI.POST("/skills/preview", s.previewSkillsHandler())
+		adminAPI.POST("/skills/reload", s.reloadSkillsHandler())
+		adminAPI.POST("/skills/:name/update", s.updateSkillHandler())
+		adminAPI.DELETE("/skills/:name", s.removeSkillHandler())
 
 		// endpoints for managing MCP clients (enterprise mode only)
 		adminAPI.GET(
@@ -376,6 +385,13 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			dashboardAPI.PATCH("/prompts/:name/enabled", s.dashboardSetPromptEnabledHandler())
 			dashboardAPI.GET("/resources", s.dashboardResourcesHandler())
 			dashboardAPI.GET("/diagnostics", s.dashboardDiagnosticsHandler())
+			dashboardAPI.GET("/skills", s.listSkillsHandler(true))
+			dashboardAPI.GET("/skills/:name", s.getSkillHandler())
+			dashboardAPI.POST("/skills", s.installSkillsHandler())
+			dashboardAPI.POST("/skills/preview", s.previewSkillsHandler())
+			dashboardAPI.POST("/skills/reload", s.reloadSkillsHandler())
+			dashboardAPI.POST("/skills/:name/update", s.updateSkillHandler())
+			dashboardAPI.DELETE("/skills/:name", s.removeSkillHandler())
 		}
 	}
 

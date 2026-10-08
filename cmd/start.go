@@ -51,6 +51,10 @@ const (
 	// separator (':' on Unix, ';' on Windows). Skills are disabled when it is empty.
 	SkillsDirEnvVar = "MCPJUNGLE_SKILLS_DIR"
 
+	// SkillsInstallDirEnvVar is the directory that skills installed at runtime (from the dashboard,
+	// API or CLI) are written to. Defaults to the first skills directory.
+	SkillsInstallDirEnvVar = "MCPJUNGLE_SKILLS_INSTALL_DIR"
+
 	DBUrlEnvVar            = "DATABASE_URL"
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
 	ServerModeEnvVar       = "SERVER_MODE"
@@ -85,6 +89,7 @@ var (
 	startServerCmdBindPort          string
 	startServerCmdSQLiteDBPath      string
 	startServerCmdSkillsDirs        []string
+	startServerCmdSkillsInstallDir  string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
 )
@@ -148,6 +153,16 @@ func init() {
 			"directory containing Agent Skills (folders with a SKILL.md file) to expose through the MCP gateway;"+
 				" can be repeated (overrides env var %s)",
 			SkillsDirEnvVar,
+		),
+	)
+	startServerCmd.Flags().StringVar(
+		&startServerCmdSkillsInstallDir,
+		"skills-install-dir",
+		"",
+		fmt.Sprintf(
+			"directory that skills installed at runtime are written to; enables skills on its own"+
+				" and defaults to the first --skills-dir (overrides env var %s)",
+			SkillsInstallDirEnvVar,
 		),
 	)
 	startServerCmd.Flags().BoolVar(
@@ -309,6 +324,21 @@ func getSkillsDirs() []string {
 		}
 	}
 	return out
+}
+
+// getSkillsInstallDir returns the directory runtime skill installs are written to.
+// precedence: command line flag > environment variable > first skills directory
+func getSkillsInstallDir(skillsDirs []string) string {
+	if dir := strings.TrimSpace(startServerCmdSkillsInstallDir); dir != "" {
+		return dir
+	}
+	if dir := strings.TrimSpace(os.Getenv(SkillsInstallDirEnvVar)); dir != "" {
+		return dir
+	}
+	if len(skillsDirs) > 0 {
+		return skillsDirs[0]
+	}
+	return ""
 }
 
 // getEnvOrFile returns the value of the given environment variable.
@@ -525,8 +555,9 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}
 
-	if skillsDirs := getSkillsDirs(); len(skillsDirs) > 0 {
-		skillStore, err := skills.Load(skillsDirs)
+	skillsDirs := getSkillsDirs()
+	if skillsInstallDir := getSkillsInstallDir(skillsDirs); skillsInstallDir != "" {
+		skillStore, err := skills.New(skills.Options{Dirs: skillsDirs, InstallDir: skillsInstallDir})
 		if err != nil {
 			return fmt.Errorf("failed to load skills: %v", err)
 		}
@@ -534,7 +565,8 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to register skills: %v", err)
 		}
 		log.Printf(
-			"[server] loaded %d skill(s) from %s\n", len(skillStore.List()), strings.Join(skillsDirs, ", "),
+			"[server] loaded %d skill(s); skills installed at runtime are written to %s\n",
+			len(skillStore.List()), skillStore.InstallDir(),
 		)
 	}
 

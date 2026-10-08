@@ -60,15 +60,30 @@ func (m *MCPService) RegisterSkills(store *skills.Store) error {
 	}
 
 	m.skillStore = store
+	m.syncSkills()
+	store.SetOnChange(m.syncSkills)
 
+	return nil
+}
+
+// syncSkills brings the skill tools and prompts on the proxy servers in line with the skill
+// store. It runs whenever skills are installed, updated, removed or reloaded.
+func (m *MCPService) syncSkills() {
+	m.skillSyncMu.Lock()
+	defer m.skillSyncMu.Unlock()
+
+	// re-adding the tools refreshes the skill catalog embedded in the get_skill description
 	for _, t := range m.skillTools() {
 		m.mcpProxyServer.AddTool(t.tool, t.handler)
 		m.sseMcpProxyServer.AddTool(t.tool, t.handler)
 	}
 
-	for _, sk := range store.List() {
+	current := make(map[string]struct{})
+	for _, sk := range m.skillStore.List() {
+		name := mergeServerPromptNames(SkillsServerName, sk.Name)
+		current[name] = struct{}{}
 		prompt := mcp.NewPrompt(
-			mergeServerPromptNames(SkillsServerName, sk.Name),
+			name,
 			mcp.WithPromptDescription(sk.Description),
 			mcp.WithArgument(
 				skillPromptTaskArg,
@@ -79,7 +94,22 @@ func (m *MCPService) RegisterSkills(store *skills.Store) error {
 		m.sseMcpProxyServer.AddPrompt(prompt, m.skillPromptHandler)
 	}
 
-	return nil
+	var stale []string
+	for name := range m.skillPromptNames {
+		if _, ok := current[name]; !ok {
+			stale = append(stale, name)
+		}
+	}
+	if len(stale) > 0 {
+		m.mcpProxyServer.DeletePrompts(stale...)
+		m.sseMcpProxyServer.DeletePrompts(stale...)
+	}
+	m.skillPromptNames = current
+}
+
+// SkillStore returns the skill store, or nil if skills are not enabled.
+func (m *MCPService) SkillStore() *skills.Store {
+	return m.skillStore
 }
 
 // isReservedServerName reports whether name cannot be used for a user-registered MCP server.
