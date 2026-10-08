@@ -29,6 +29,10 @@ The server listens on all interfaces on port `8080` by default and exposes the M
   Optional path to a custom SQLite database file to use when PostgreSQL is not configured. If not provided, MCPJungle defaults to `./mcpjungle.db`. Overrides the `SQLITE_DB_PATH` environment variable.
 </ParamField>
 
+<ParamField body="--skills-dir" type="string">
+  Directory containing [Agent Skills](/guides/agent-skills) to expose through the MCP gateway. Repeat the flag or pass a comma-separated list to load several directories. Overrides the `MCPJUNGLE_SKILLS_DIR` environment variable. Skills are disabled when neither is set.
+</ParamField>
+
 <ParamField body="--enterprise" type="boolean" default="false">
   Start the server in enterprise mode, which enables access control, authenticated clients, and user management. Equivalent to setting `SERVER_MODE=enterprise`. When using this flag on a fresh database, the server will print a reminder to run `init-server` before it can be used.
 </ParamField>

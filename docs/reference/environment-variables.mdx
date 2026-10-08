@@ -103,6 +103,15 @@ When the server starts it resolves the database connection in this order:
   ```
 </ParamField>
 
+<ParamField path="MCPJUNGLE_SKILLS_DIR" type="string">
+  Directories to load [Agent Skills](/guides/agent-skills) from, separated by `:` (`;` on Windows). The `--skills-dir` CLI flag takes precedence over this variable. If unset, skills are disabled.
+
+  ```bash
+  export MCPJUNGLE_SKILLS_DIR=/srv/skills:/home/me/.claude/skills
+  mcpjungle start
+  ```
+</ParamField>
+
 <ParamField path="PORT" type="string" default="8080">
   TCP port the HTTP server listens on. The `--port` CLI flag takes precedence over this variable.
 
@@ -221,6 +230,7 @@ When the server starts it resolves the database connection in this order:
 | `POSTGRES_DB` | Database | `postgres` | PostgreSQL database name. |
 | `POSTGRES_DB_FILE` | Database | — | File path for PostgreSQL database name. |
 | `MCPJUNGLE_BIND_HOST` | Server | all interfaces | HTTP listen host or network interface. |
+| `MCPJUNGLE_SKILLS_DIR` | Server | — | Directories to load Agent Skills from (`:`-separated). |
 | `PORT` | Server | `8080` | HTTP listen port. |
 | `SERVER_MODE` | Server | `development` | Server mode: `development` or `enterprise`. |
 | `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Server | `30` | Seconds to wait for MCP server initialization. |

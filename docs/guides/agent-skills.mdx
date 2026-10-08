@@ -1,0 +1,88 @@
+---
+title: "Agent skills"
+description: "Share Agent Skills with every MCP client through the Mcpjungle gateway."
+---
+
+[Agent Skills](https://agentskills.io) are folders of instructions, scripts, and reference files that teach an AI agent how to do a specific kind of task. Mcpjungle can load skills from disk and serve them to any MCP client through the same `/mcp` endpoint as your other tools.
+
+Use this when you want one shared set of skills for Claude, Cursor, Copilot, and custom agents, instead of copying skill folders onto every machine.
+
+## Skill format
+
+Each skill is a directory that contains a `SKILL.md` file. The file starts with YAML frontmatter followed by markdown instructions:
+
+```text
+skills/
+└── pdf/
+    ├── SKILL.md
+    ├── scripts/
+    │   └── extract.py
+    └── references/
+        └── forms.md
+```
+
+```markdown
+---
+name: pdf
+description: Extract text and fill forms in PDF files. Use when working with PDFs.
+---
+# PDF skill
+
+Run `scripts/extract.py <file>` to extract text. For forms, see `references/forms.md`.
+```
+
+- `description` is required. The agent uses it to decide when to load the skill.
+- `name` defaults to the directory name. It must use lowercase letters, digits, and single hyphens, with at most 64 characters.
+- `license`, `compatibility`, `allowed-tools`, and `metadata` are optional and are passed through as-is.
+
+Mcpjungle skips invalid skills and logs a warning for each one.
+
+## Enable skills
+
+Point the server at one or more skill directories:
+
+```bash
+mcpjungle start --skills-dir ./skills --skills-dir ~/.claude/skills
+```
+
+Or use the environment variable:
+
+```bash
+export MCPJUNGLE_SKILLS_DIR=./skills:/srv/shared-skills
+mcpjungle start
+```
+
+Each directory can be a single skill, or contain skills at any depth. Mcpjungle ignores hidden subdirectories. If two directories provide a skill with the same name, the first one wins.
+
+Mcpjungle discovers skills when the server starts, so restart the server after you add or remove a skill. It reads the content of `SKILL.md` and bundled files on every request, so edits to existing skills apply immediately.
+
+## What clients see
+
+Skills are served by a built-in server named `skills`. It follows the same `<server-name>__<name>` naming as every other server. Mcpjungle reserves this name while skills are enabled, so you can't register another MCP server called `skills`.
+
+### Tools
+
+Three read-only tools let the agent load skills on demand:
+
+| Tool | Arguments | Returns |
+| --- | --- | --- |
+| `skills__list_skills` | — | Name and description of every skill. |
+| `skills__get_skill` | `name` | Instructions from `SKILL.md`, plus the list of bundled files. |
+| `skills__read_skill_file` | `name`, `path` | The text content of a bundled file, eg- `references/forms.md`. |
+
+The description of `skills__get_skill` includes the full skill catalog. An agent can find a matching skill from `tools/list` alone, then load only the skills it needs.
+
+### Prompts
+
+Each skill is also exposed as a prompt named `skills__<skill-name>`, eg- `skills__pdf`. The prompt accepts an optional `task` argument. Use prompts to activate a skill directly from clients that support MCP prompts, such as slash commands in Claude or Cursor.
+
+## Security
+
+- `skills__read_skill_file` only reads text files inside the skill's own directory. It rejects absolute paths, `..` segments, hidden files, symlinks that point outside the skill, binary files, and files larger than 1 MiB.
+- The gateway never runs bundled scripts. Agents can read a script, but it runs in the agent's own environment, if at all.
+- In [enterprise mode](/governance/access-control), a client sees and uses skills only if its allow list contains `skills` (or `*`).
+
+## Limitations
+
+- Skills aren't stored in the registry database, so they don't appear in `mcpjungle list tools` and you can't add them to [tool groups](/guides/tool-groups).
+- You can't enable or disable individual skills. To hide a skill, remove it from the skills directory and restart the server.
