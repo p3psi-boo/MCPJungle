@@ -1405,3 +1405,85 @@ button:disabled {
     overflow-x: auto;
   }
 }
+
+.skills-table td:nth-child(2) {
+  min-width: 180px;
+}
+
+.skill-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-file-list li code {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-size: 0.82rem;
+}
+
+.skill-instructions code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.skills-install-dir {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.skill-source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.skill-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.skill-example-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.skill-example-chip:hover {
+  background: #f6f8fa;
+}
+
+.skill-candidate {
+  cursor: pointer;
+}
+
+.skill-candidate:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.skill-candidate-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skill-overwrite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
