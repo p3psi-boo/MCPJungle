@@ -1487,3 +1487,13 @@ button:disabled {
   gap: 8px;
   font-size: 0.9rem;
 }
+
+.skills-table .row-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.skills-table td:nth-child(4) {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}

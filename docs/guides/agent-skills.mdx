@@ -54,7 +54,55 @@ mcpjungle start
 
 Each directory can be a single skill, or contain skills at any depth. Mcpjungle ignores hidden subdirectories. If two directories provide a skill with the same name, the first one wins.
 
-Mcpjungle discovers skills when the server starts, so restart the server after you add or remove a skill. It reads the content of `SKILL.md` and bundled files on every request, so edits to existing skills apply immediately.
+Mcpjungle reads the content of `SKILL.md` and bundled files on every request, so edits to existing skills apply immediately. If you add or remove skill folders on disk, click **Reload** on the dashboard's **Skills** page or run `mcpjungle skills reload`. You don't need to restart the server.
+
+## Install skills from GitHub
+
+You can install skills at runtime, similar to `npx skills add`. Installed skills are written to the install directory. This is the first `--skills-dir` by default, or the directory you set with `--skills-install-dir` (or `MCPJUNGLE_SKILLS_INSTALL_DIR`). Setting only an install directory is enough to enable skills:
+
+```bash
+mcpjungle start --skills-install-dir ./skills
+```
+
+If you run Mcpjungle in Docker, mount the install directory as a volume so installed skills survive container restarts.
+
+### From the dashboard
+
+1. Open the dashboard and go to **Skills**.
+2. Click **+ Add Skill** and enter a source, eg- `anthropics/skills`.
+3. Click **Find skills**, select the skills you want, and click **Install**.
+
+Each installed skill shows where it came from. Click **Update** to reinstall it from that source, or **Remove** to delete it. MCP clients see the change right away, without reconnecting.
+
+### From the CLI
+
+```bash
+# list the skills in a repository
+mcpjungle skills add anthropics/skills --list
+
+# install some of them
+mcpjungle skills add anthropics/skills --skill pdf --skill docx
+
+# install a single skill from a directory URL
+mcpjungle skills add https://github.com/anthropics/skills/tree/main/skills/pdf
+
+mcpjungle skills list
+mcpjungle skills update pdf
+mcpjungle skills remove docx
+```
+
+### Supported sources
+
+| Source | Example |
+| --- | --- |
+| Repository | `owner/repo` |
+| Directory in a repository | `owner/repo/path/to/skills` |
+| Branch, tag, or commit | `owner/repo@v1.2.0` |
+| GitHub URL | `https://github.com/owner/repo/tree/main/skills/pdf` |
+
+Mcpjungle downloads the repository as an archive over HTTPS, so the server doesn't need `git`. It finds every directory that contains a `SKILL.md`, including skills under hidden directories such as `.claude/skills`. To install from private repositories, set the `GITHUB_TOKEN` environment variable on the server.
+
+A skill that comes from a `--skills-dir` directory can't be replaced or removed at runtime. Installing a skill with the same name fails. If a skill with that name is already installed, the dashboard asks you to confirm the replacement, and the CLI requires `--overwrite`.
 
 ## What clients see
 
@@ -78,6 +126,8 @@ Each skill is also exposed as a prompt named `skills__<skill-name>`, eg- `skills
 
 ## Security
 
+- Installing, updating, and removing skills requires an admin user in enterprise mode. In development mode, anyone who can reach the server can install skills, just like registering MCP servers.
+- Downloads are limited to 200 MiB and 20,000 files. Archive entries that are links or that escape the target directory are skipped.
 - `skills__read_skill_file` only reads text files inside the skill's own directory. It rejects absolute paths, `..` segments, hidden files, symlinks that point outside the skill, binary files, and files larger than 1 MiB.
 - The gateway never runs bundled scripts. Agents can read a script, but it runs in the agent's own environment, if at all.
 - In [enterprise mode](/governance/access-control), a client sees and uses skills only if its allow list contains `skills` (or `*`).
@@ -85,4 +135,5 @@ Each skill is also exposed as a prompt named `skills__<skill-name>`, eg- `skills
 ## Limitations
 
 - Skills aren't stored in the registry database, so they don't appear in `mcpjungle list tools` and you can't add them to [tool groups](/guides/tool-groups).
-- You can't enable or disable individual skills. To hide a skill, remove it from the skills directory and restart the server.
+- You can't enable or disable individual skills. To hide a skill, remove it.
+- Only GitHub sources are supported for installation.
