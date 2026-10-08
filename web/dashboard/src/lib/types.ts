@@ -4,6 +4,7 @@ export type AppSection =
   | "tool_groups"
   | "prompts"
   | "resources"
+  | "skills"
   | "diagnostics";
 
 export interface DashboardEmptyState {
@@ -192,4 +193,58 @@ export interface DashboardOAuthSessionResponse {
   server_name?: string;
   expires_at?: string;
   error?: string;
+}
+
+export interface DashboardSkillOrigin {
+  source: string;
+  repo: string;
+  ref?: string;
+  path?: string;
+  installed_at: string;
+}
+
+export interface DashboardSkill {
+  name: string;
+  description: string;
+  license?: string;
+  compatibility?: string;
+  prompt_name: string;
+  removable: boolean;
+  origin?: DashboardSkillOrigin;
+}
+
+export interface DashboardSkillDetail extends DashboardSkill {
+  instructions: string;
+  files: string[];
+  files_truncated?: boolean;
+}
+
+export interface DashboardSkillsResponse {
+  enabled: boolean;
+  can_install: boolean;
+  install_dir?: string;
+  skills: DashboardSkill[];
+}
+
+export interface DashboardSkillCandidate {
+  name: string;
+  description: string;
+  path: string;
+  installed: boolean;
+  conflict?: string;
+}
+
+export interface DashboardSkillPreviewResponse {
+  source: string;
+  skills: DashboardSkillCandidate[];
+}
+
+export interface DashboardInstallSkillsInput {
+  source: string;
+  skills: string[];
+  overwrite: boolean;
+}
+
+export interface DashboardInstallSkillsResponse {
+  installed: DashboardSkill[];
 }

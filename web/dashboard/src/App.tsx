@@ -19,10 +19,12 @@ import type {
   DashboardTool,
   DashboardToolsResponse,
 } from "@/lib/types";
+import { ChevronIcon } from "@/components/ChevronIcon";
 import { CopyButton } from "@/components/CopyButton";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { NavSidebar } from "@/components/NavSidebar";
 import { SectionCard } from "@/components/SectionCard";
+import { SkillsSection } from "@/components/SkillsSection";
 import { StatusBadge } from "@/components/StatusBadge";
 
 function TrashIcon() {
@@ -118,6 +120,10 @@ const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
   resources: {
     title: "Resources",
     subtitle: "Resources registered and proxied through the gateway.",
+  },
+  skills: {
+    title: "Skills",
+    subtitle: "Agent Skills shared with every MCP client through the gateway.",
   },
   diagnostics: {
     title: "System Info",
@@ -340,27 +346,6 @@ function parsePromptArgumentFields(argumentsValue?: Array<Record<string, unknown
   });
 
   return fields;
-}
-
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={`row-chevron ${expanded ? "is-expanded" : ""}`}
-      fill="none"
-      height="16"
-      viewBox="0 0 16 16"
-      width="16"
-    >
-      <path
-        d="m5.5 3.75 4.25 4.25-4.25 4.25"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
 }
 
 function createEmptyPair(): KeyValueRow {
@@ -1754,6 +1739,8 @@ export default function App() {
                 )}
               </SectionCard>
             ) : null}
+
+            {section === "skills" ? <SkillsSection onFeedback={setFeedback} /> : null}
 
             {section === "diagnostics" && diagnostics ? (
               <>

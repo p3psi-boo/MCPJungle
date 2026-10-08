@@ -49,6 +49,7 @@
               "guides/tools-and-prompts",
               "guides/manage-resources",
               "guides/tool-groups",
+              "guides/agent-skills",
               "guides/session-modes",
               "guides/register-popular-servers"
             ]

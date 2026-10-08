@@ -1,6 +1,8 @@
 import type {
   DashboardCreateToolGroupInput,
   DashboardDiagnosticsResponse,
+  DashboardInstallSkillsInput,
+  DashboardInstallSkillsResponse,
   DashboardOAuthSessionResponse,
   DashboardOverviewResponse,
   DashboardPromptsResponse,
@@ -8,6 +10,10 @@ import type {
   DashboardRegisterServerResponse,
   DashboardResourcesResponse,
   DashboardServersResponse,
+  DashboardSkill,
+  DashboardSkillDetail,
+  DashboardSkillPreviewResponse,
+  DashboardSkillsResponse,
   DashboardToolGroupsResponse,
   DashboardToolsResponse,
 } from "./types";
@@ -85,5 +91,32 @@ export const api = {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled }),
+    }),
+  skills: () => requestJSON<DashboardSkillsResponse>("/api/dashboard/skills"),
+  skill: (name: string) =>
+    requestJSON<DashboardSkillDetail>(`/api/dashboard/skills/${encodeURIComponent(name)}`),
+  previewSkills: (source: string) =>
+    requestJSON<DashboardSkillPreviewResponse>("/api/dashboard/skills/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    }),
+  installSkills: (body: DashboardInstallSkillsInput) =>
+    requestJSON<DashboardInstallSkillsResponse>("/api/dashboard/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateSkill: (name: string) =>
+    requestJSON<DashboardSkill>(`/api/dashboard/skills/${encodeURIComponent(name)}/update`, {
+      method: "POST",
+    }),
+  removeSkill: (name: string) =>
+    requestJSON(`/api/dashboard/skills/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
+  reloadSkills: () =>
+    requestJSON<{ skill_count: number }>("/api/dashboard/skills/reload", {
+      method: "POST",
     }),
 };
