@@ -70,7 +70,7 @@ func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer, 
 	}
 	if m.isReservedServerName(s.Name) {
 		return fmt.Errorf(
-			"invalid server name: '%s' is reserved for the built-in management server: %w", s.Name, apierrors.ErrInvalidInput,
+			"invalid server name: '%s' is reserved for a built-in server: %w", s.Name, apierrors.ErrInvalidInput,
 		)
 	}
 

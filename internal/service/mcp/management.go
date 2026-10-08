@@ -82,8 +82,3 @@ func (m *MCPService) withManagementToolGuard(toolName string, handler server.Too
 		return res, err
 	}
 }
-
-// isReservedServerName reports whether name cannot be used for a user-registered MCP server.
-func (m *MCPService) isReservedServerName(name string) bool {
-	return m.managementToolsEnabled && name == ManagementServerName
-}

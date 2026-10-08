@@ -18,6 +18,10 @@ func handleServiceError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, types.APIErrorResponse{Error: err.Error()})
 		return
 	}
+	if errors.Is(err, apierrors.ErrConflict) {
+		c.JSON(http.StatusConflict, types.APIErrorResponse{Error: err.Error()})
+		return
+	}
 	if errors.Is(err, apierrors.ErrInvalidInput) {
 		resp := types.APIErrorResponse{Error: err.Error()}
 		if errors.Is(err, apierrors.ErrUpstreamOAuthRequired) {

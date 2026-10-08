@@ -6,6 +6,7 @@ const items: Array<{ key: AppSection; label: string }> = [
   { key: "tool_groups", label: "Tool Groups" },
   { key: "prompts", label: "Prompts" },
   { key: "resources", label: "Resources" },
+  { key: "skills", label: "Skills" },
   { key: "diagnostics", label: "System Info" },
 ];
 

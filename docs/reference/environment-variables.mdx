@@ -103,6 +103,23 @@ When the server starts it resolves the database connection in this order:
   ```
 </ParamField>
 
+<ParamField path="MCPJUNGLE_SKILLS_DIR" type="string">
+  Directories to load [Agent Skills](/guides/agent-skills) from, separated by `:` (`;` on Windows). The `--skills-dir` CLI flag takes precedence over this variable. If unset, skills are disabled.
+
+  ```bash
+  export MCPJUNGLE_SKILLS_DIR=/srv/skills:/home/me/.claude/skills
+  mcpjungle start
+  ```
+</ParamField>
+
+<ParamField path="MCPJUNGLE_SKILLS_INSTALL_DIR" type="string">
+  Directory that skills installed at runtime are written to. The `--skills-install-dir` CLI flag takes precedence over this variable. Defaults to the first skills directory.
+</ParamField>
+
+<ParamField path="GITHUB_TOKEN" type="string">
+  GitHub token used to download skills from private repositories. If unset, skills are downloaded anonymously.
+</ParamField>
+
 <ParamField path="PORT" type="string" default="8080">
   TCP port the HTTP server listens on. The `--port` CLI flag takes precedence over this variable.
 
@@ -230,6 +247,9 @@ When the server starts it resolves the database connection in this order:
 | `POSTGRES_DB` | Database | `postgres` | PostgreSQL database name. |
 | `POSTGRES_DB_FILE` | Database | — | File path for PostgreSQL database name. |
 | `MCPJUNGLE_BIND_HOST` | Server | all interfaces | HTTP listen host or network interface. |
+| `MCPJUNGLE_SKILLS_DIR` | Server | — | Directories to load Agent Skills from (`:`-separated). |
+| `MCPJUNGLE_SKILLS_INSTALL_DIR` | Server | first skills directory | Directory skills installed at runtime are written to. |
+| `GITHUB_TOKEN` | Server | — | Token for installing skills from private GitHub repositories. |
 | `PORT` | Server | `8080` | HTTP listen port. |
 | `SERVER_MODE` | Server | `development` | Server mode: `development` or `enterprise`. |
 | `MCPJUNGLE_MANAGEMENT_TOOLS` | Server | `false` | Expose the built-in `mcpjungle` management MCP server. |
