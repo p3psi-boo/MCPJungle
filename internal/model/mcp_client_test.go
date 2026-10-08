@@ -71,3 +71,49 @@ func TestMcpClient_CheckHasServerAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestMcpClient_CheckHasExplicitServerAccess(t *testing.T) {
+	cases := []struct {
+		name   string
+		allow  datatypes.JSON
+		server string
+		want   bool
+	}{
+		{
+			name:   "nil allow list",
+			allow:  datatypes.JSON(nil),
+			server: "server-1",
+			want:   false,
+		},
+		{
+			name:   "global wildcard does not grant access",
+			allow:  datatypes.JSON(fmt.Sprintf(`["%s"]`, types.AllowAllMcpServers)),
+			server: "server-1",
+			want:   false,
+		},
+		{
+			name:   "exact match allowed",
+			allow:  datatypes.JSON(fmt.Sprintf(`["%s","server-1"]`, types.AllowAllMcpServers)),
+			server: "server-1",
+			want:   true,
+		},
+		{
+			name:   "malformed json returns false",
+			allow:  datatypes.JSON("not-json"),
+			server: "server-1",
+			want:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			client := &McpClient{AllowList: tc.allow}
+			got := client.CheckHasExplicitServerAccess(tc.server)
+			if got != tc.want {
+				t.Fatalf("case %q: CheckHasExplicitServerAccess(%q) = %v, want %v", tc.name, tc.server, got, tc.want)
+			}
+		})
+	}
+}

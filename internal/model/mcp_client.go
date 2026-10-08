@@ -26,6 +26,16 @@ type McpClient struct {
 // CheckHasServerAccess returns true if this client has access to the specified MCP server.
 // If not, it returns false.
 func (c *McpClient) CheckHasServerAccess(serverName string) bool {
+	return c.checkAllowList(serverName, true)
+}
+
+// CheckHasExplicitServerAccess returns true only if the client's allow list names the specified
+// MCP server. Unlike CheckHasServerAccess, the wildcard does not grant access.
+func (c *McpClient) CheckHasExplicitServerAccess(serverName string) bool {
+	return c.checkAllowList(serverName, false)
+}
+
+func (c *McpClient) checkAllowList(serverName string, honorWildcard bool) bool {
 	if c.AllowList == nil {
 		return false
 	}
@@ -35,7 +45,7 @@ func (c *McpClient) CheckHasServerAccess(serverName string) bool {
 	}
 	for _, allowed := range allowedServers {
 		// If the client's allow list contains wildcard, then it is allowed to access all mcp servers
-		if allowed == types.AllowAllMcpServers || allowed == serverName {
+		if (honorWildcard && allowed == types.AllowAllMcpServers) || allowed == serverName {
 			return true
 		}
 	}

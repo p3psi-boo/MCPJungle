@@ -52,6 +52,9 @@ type MCPService struct {
 
 	// sessionManager manages persistent connections for MCP servers configured in stateful mode.
 	sessionManager *SessionManager
+
+	// managementToolsEnabled is true once the built-in management server's tools have been registered.
+	managementToolsEnabled bool
 }
 
 // NewMCPService creates a new instance of MCPService.

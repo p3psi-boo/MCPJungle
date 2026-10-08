@@ -1,0 +1,66 @@
+---
+title: "Management Tools"
+description: "Let an agent manage mcpjungle itself, such as creating tool groups or disabling tools, over MCP."
+---
+
+Mcpjungle can expose a built-in MCP server named `mcpjungle`. Its tools let an agent connected to the gateway inspect and manage the gateway itself. For example, you can ask your agent to *"create a tool group with only the GitHub tools, without the delete ones"*. The agent creates the group directly, so you don't need the CLI or the dashboard.
+
+Management tools are **off by default**.
+
+## Enable management tools
+
+Start the server with the `--management-tools` flag:
+
+```bash
+mcpjungle start --management-tools
+```
+
+You can also set the `MCPJUNGLE_MANAGEMENT_TOOLS` environment variable:
+
+```bash
+export MCPJUNGLE_MANAGEMENT_TOOLS=true
+mcpjungle start
+```
+
+Clients connected to the main `/mcp` endpoint (and `/sse`) then see the tools below.
+
+## Available tools
+
+| Tool | What it does |
+|---|---|
+| `mcpjungle__list_servers` | Lists registered MCP servers with their transport and enabled state. Server configuration such as URLs, commands and tokens is never returned. |
+| `mcpjungle__set_server_enabled` | Enables or disables an MCP server, including its tools, prompts and resources. |
+| `mcpjungle__list_tools` | Lists tools by their canonical names (`<server>__<tool>`), including disabled ones. Accepts an optional `server` filter. |
+| `mcpjungle__set_tools_enabled` | Enables or disables tools. Each name can be a tool name or a server name. A server name applies to all of that server's tools. |
+| `mcpjungle__list_tool_groups` | Lists tool groups with their configuration and endpoints. |
+| `mcpjungle__get_tool_group` | Returns a group's configuration, endpoints and effective tools. |
+| `mcpjungle__create_tool_group` | Creates a tool group from `included_tools`, `included_servers` and `excluded_tools`. |
+| `mcpjungle__update_tool_group` | Updates a tool group. Only the fields you pass change. Each list you pass replaces the current list. |
+| `mcpjungle__delete_tool_group` | Deletes a tool group. |
+
+Tool groups behave exactly as described in [Tool Groups](/guides/tool-groups). Changes take effect immediately for clients that are already connected. Group endpoints are returned as paths, such as `/v0/groups/dev/mcp`, relative to your gateway URL.
+
+<Note>
+  Registering and deregistering MCP servers is intentionally not available as a tool. Registering a STDIO server runs a command on the gateway host. Use the CLI, the API or the dashboard for that.
+</Note>
+
+## Access control
+
+In development mode, every client connected to the gateway can use the management tools. Enable them only on gateways you trust your agents to manage. Bind the server to `127.0.0.1` with `--host` if you don't want other machines to reach it.
+
+In enterprise mode, management tools are only visible to MCP clients whose allow-list names `mcpjungle` **explicitly**. The `*` wildcard does **not** grant access to them:
+
+```bash
+mcpjungle create mcp-client ops-agent --allow "mcpjungle"
+```
+
+A client can be allowed both the management server and regular servers:
+
+```bash
+mcpjungle create mcp-client ops-agent --allow "mcpjungle, github"
+```
+
+## Limitations
+
+- While management tools are enabled, the name `mcpjungle` is reserved. Registering a server with that name fails. If a server named `mcpjungle` already exists, the server refuses to start with management tools enabled.
+- Management tools aren't stored in the database. They don't appear in `mcpjungle list tools`, can't be added to tool groups, and can't be enabled or disabled one at a time.

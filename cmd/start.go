@@ -23,6 +23,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/dashboard"
+	"github.com/mcpjungle/mcpjungle/internal/service/management"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -49,6 +50,10 @@ const (
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
 	ServerModeEnvVar       = "SERVER_MODE"
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
+
+	// ManagementToolsEnvVar enables the built-in `mcpjungle` MCP server, whose tools let agents
+	// manage servers, tools and tool groups.
+	ManagementToolsEnvVar = "MCPJUNGLE_MANAGEMENT_TOOLS"
 )
 
 const (
@@ -80,6 +85,7 @@ var (
 	startServerCmdSQLiteDBPath      string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
+	startServerCmdManagementTools   bool
 )
 
 var startServerCmd = &cobra.Command{
@@ -148,6 +154,16 @@ func init() {
 		"prod",
 		false,
 		"[DEPRECATED] Alias for --enterprise flag.",
+	)
+	startServerCmd.Flags().BoolVar(
+		&startServerCmdManagementTools,
+		"management-tools",
+		false,
+		fmt.Sprintf(
+			"Expose the built-in '%s' MCP server, whose tools let agents manage servers, tools and tool groups"+
+				" (overrides env var %s)",
+			mcp.ManagementServerName, ManagementToolsEnvVar,
+		),
 	)
 
 	rootCmd.AddCommand(startServerCmd)
@@ -243,6 +259,25 @@ func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
 	}
 
 	return telemetryEnabled, nil
+}
+
+// isManagementToolsEnabled returns true if the built-in management MCP server should be exposed.
+// precedence: command line flag > environment variable > disabled
+func isManagementToolsEnabled(cmd *cobra.Command) (bool, error) {
+	if cmd.Flags().Changed("management-tools") {
+		return startServerCmdManagementTools, nil
+	}
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv(ManagementToolsEnvVar))); v {
+	case "", "false", "0":
+		return false, nil
+	case "true", "1":
+		return true, nil
+	default:
+		return false, fmt.Errorf(
+			"invalid value for %s environment variable: '%s', valid values are 'true' or 'false'",
+			ManagementToolsEnvVar, v,
+		)
+	}
 }
 
 // getBindHost returns the interface to bind to.
@@ -501,6 +536,17 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	toolGroupService, err := toolgroup.NewToolGroupService(dbConn, mcpService)
 	if err != nil {
 		return fmt.Errorf("failed to create Tool Group service: %v", err)
+	}
+
+	managementToolsEnabled, err := isManagementToolsEnabled(cmd)
+	if err != nil {
+		return err
+	}
+	if managementToolsEnabled {
+		if err := management.NewService(mcpService, toolGroupService).Register(); err != nil {
+			return fmt.Errorf("failed to enable management tools: %v", err)
+		}
+		log.Printf("[server] management tools are enabled on the built-in '%s' MCP server\n", mcp.ManagementServerName)
 	}
 
 	// create the API server

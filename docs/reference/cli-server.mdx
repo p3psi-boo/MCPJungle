@@ -33,6 +33,10 @@ The server listens on all interfaces on port `8080` by default and exposes the M
   Start the server in enterprise mode, which enables access control, authenticated clients, and user management. Equivalent to setting `SERVER_MODE=enterprise`. When using this flag on a fresh database, the server will print a reminder to run `init-server` before it can be used.
 </ParamField>
 
+<ParamField body="--management-tools" type="boolean" default="false">
+  Expose the built-in `mcpjungle` MCP server, whose tools let agents manage servers, tools and tool groups. Overrides the `MCPJUNGLE_MANAGEMENT_TOOLS` environment variable. See [Management Tools](/guides/management-tools).
+</ParamField>
+
 ### Environment variables
 
 The `start` command reads environment variables for server mode, database configuration, timeouts, and telemetry. A `.env` file in the working directory is loaded automatically if present.

@@ -130,6 +130,15 @@ When the server starts it resolves the database connection in this order:
   </Note>
 </ParamField>
 
+<ParamField path="MCPJUNGLE_MANAGEMENT_TOOLS" type="boolean" default="false">
+  Set to `true` to expose the built-in `mcpjungle` MCP server, whose tools let agents manage servers, tools and tool groups. The `--management-tools` CLI flag takes precedence over this variable. See [Management Tools](/guides/management-tools).
+
+  ```bash
+  export MCPJUNGLE_MANAGEMENT_TOOLS=true
+  mcpjungle start
+  ```
+</ParamField>
+
 <ParamField path="MCP_SERVER_INIT_REQ_TIMEOUT_SEC" type="integer" default="30">
   Maximum number of seconds MCPJungle waits for a newly registered MCP server to respond to its initialization request before aborting. Must be a positive integer. Increase this value if you register STDIO servers that take a long time to start up.
 
@@ -223,6 +232,7 @@ When the server starts it resolves the database connection in this order:
 | `MCPJUNGLE_BIND_HOST` | Server | all interfaces | HTTP listen host or network interface. |
 | `PORT` | Server | `8080` | HTTP listen port. |
 | `SERVER_MODE` | Server | `development` | Server mode: `development` or `enterprise`. |
+| `MCPJUNGLE_MANAGEMENT_TOOLS` | Server | `false` | Expose the built-in `mcpjungle` management MCP server. |
 | `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Server | `30` | Seconds to wait for MCP server initialization. |
 | `OTEL_ENABLED` | Observability | mode-dependent | Enable OpenTelemetry metrics. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Observability | — | Additional OTel resource attributes. |
