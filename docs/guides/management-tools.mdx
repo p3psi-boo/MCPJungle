@@ -1,6 +1,6 @@
 ---
 title: "Management Tools"
-description: "Let an agent manage mcpjungle itself, such as creating tool groups or disabling tools, over MCP."
+description: "Let an agent manage mcpjungle itself, such as creating tool groups, disabling tools or installing skills, over MCP."
 ---
 
 Mcpjungle can expose a built-in MCP server named `mcpjungle`. Its tools let an agent connected to the gateway inspect and manage the gateway itself. For example, you can ask your agent to *"create a tool group with only the GitHub tools, without the delete ones"*. The agent creates the group directly, so you don't need the CLI or the dashboard.
@@ -43,6 +43,25 @@ Tool groups behave exactly as described in [Tool Groups](/guides/tool-groups). C
 <Note>
   Registering and deregistering MCP servers is intentionally not available as a tool. Registering a STDIO server runs a command on the gateway host. Use the CLI, the API or the dashboard for that.
 </Note>
+
+### Skills
+
+When [Agent Skills](/guides/agent-skills) are enabled, the management server also exposes tools to manage them:
+
+| Tool | What it does |
+|---|---|
+| `mcpjungle__list_skills` | Lists skills, with where each one was installed from and whether it can be updated or removed. |
+| `mcpjungle__reload_skills` | Rescans the skills directories to pick up changes made on disk. |
+| `mcpjungle__preview_skills` | Lists the skills in a GitHub source without installing anything. |
+| `mcpjungle__install_skills` | Installs skills from a GitHub source. Pass `skills` to pick specific skills and `overwrite` to replace installed ones. |
+| `mcpjungle__update_skill` | Reinstalls a skill from the source it was installed from. |
+| `mcpjungle__remove_skill` | Removes a skill installed at runtime. |
+
+The preview, install, update, and remove tools are only available when skills have an install directory, which is the first `--skills-dir` or the directory set with `--skills-install-dir`. Skills from a `--skills-dir` can't be replaced or removed. The [supported sources](/guides/agent-skills#supported-sources) are the same as for the CLI. Installed skills are served right away as `skills__*` tools and prompts.
+
+<Warning>
+  Skills are instructions that other agents follow. An agent that can install skills can change what every client connected to the gateway is told to do. Give management access only to agents you trust with that.
+</Warning>
 
 ## Access control
 

@@ -12,6 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/internal/service/skills"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
@@ -31,6 +32,12 @@ type fixture struct {
 // newFixture registers a "git" server with tools "commit" and "push", and a "time" server with "now".
 // The servers are never contacted: the tools are loaded from the database.
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
+	return newFixtureWithSkills(t, nil)
+}
+
+// newFixtureWithSkills is newFixture with the given skill store served by the skills server.
+func newFixtureWithSkills(t *testing.T, store *skills.Store) *fixture {
 	t.Helper()
 	db, err := testhelpers.CreateTestDB()
 	testhelpers.AssertNoError(t, err)
@@ -57,6 +64,9 @@ func newFixture(t *testing.T) *fixture {
 		McpServerInitReqTimeout: 1,
 	})
 	testhelpers.AssertNoError(t, err)
+	if store != nil {
+		testhelpers.AssertNoError(t, mcpService.RegisterSkills(store))
+	}
 	groups, err := toolgroup.NewToolGroupService(db, mcpService)
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNoError(t, NewService(mcpService, groups).Register())

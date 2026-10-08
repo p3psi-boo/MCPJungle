@@ -62,7 +62,7 @@ const (
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
 
 	// ManagementToolsEnvVar enables the built-in `mcpjungle` MCP server, whose tools let agents
-	// manage servers, tools and tool groups.
+	// manage servers, tools, tool groups and skills.
 	ManagementToolsEnvVar = "MCPJUNGLE_MANAGEMENT_TOOLS"
 )
 
@@ -192,7 +192,7 @@ func init() {
 		"management-tools",
 		false,
 		fmt.Sprintf(
-			"Expose the built-in '%s' MCP server, whose tools let agents manage servers, tools and tool groups"+
+			"Expose the built-in '%s' MCP server, whose tools let agents manage servers, tools, tool groups and skills"+
 				" (overrides env var %s)",
 			mcp.ManagementServerName, ManagementToolsEnvVar,
 		),

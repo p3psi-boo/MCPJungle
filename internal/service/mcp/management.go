@@ -15,7 +15,7 @@ import (
 )
 
 // ManagementServerName is the name of the built-in virtual MCP server whose tools let an agent
-// manage mcpjungle itself (servers, tools and tool groups).
+// manage mcpjungle itself (servers, tools, tool groups and skills).
 // Its tools are named `mcpjungle__<tool>`.
 const ManagementServerName = "mcpjungle"
 

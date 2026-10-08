@@ -1,5 +1,5 @@
 // Package management provides the tools of the built-in `mcpjungle` MCP server, which let an
-// agent inspect and manage the gateway itself: MCP servers, tools and tool groups.
+// agent inspect and manage the gateway itself: MCP servers, tools, tool groups and skills.
 package management
 
 import (
@@ -133,7 +133,7 @@ func (s *Service) Tools() []server.ServerTool {
 		mcpgo.WithOpenWorldHintAnnotation(false),
 	}, groupMembershipOptions...)
 
-	return []server.ServerTool{
+	tools := []server.ServerTool{
 		{
 			Tool: mcpgo.NewTool(
 				toolName(listServersToolName),
@@ -237,6 +237,7 @@ func (s *Service) Tools() []server.ServerTool {
 			Handler: s.handleDeleteToolGroup,
 		},
 	}
+	return append(tools, s.skillTools()...)
 }
 
 func readOnly() mcpgo.ToolOption {
