@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/dashboard"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
+	"github.com/mcpjungle/mcpjungle/internal/service/skills"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
@@ -44,6 +46,10 @@ const (
 	// which matters because a development-mode server has no authentication and
 	// its tools can act on the upstreams it proxies.
 	BindHostEnvVar = "MCPJUNGLE_BIND_HOST"
+
+	// SkillsDirEnvVar lists directories to load Agent Skills from, separated by the OS path list
+	// separator (':' on Unix, ';' on Windows). Skills are disabled when it is empty.
+	SkillsDirEnvVar = "MCPJUNGLE_SKILLS_DIR"
 
 	DBUrlEnvVar            = "DATABASE_URL"
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
@@ -78,6 +84,7 @@ var (
 	startServerCmdBindHost          string
 	startServerCmdBindPort          string
 	startServerCmdSQLiteDBPath      string
+	startServerCmdSkillsDirs        []string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
 )
@@ -131,6 +138,16 @@ func init() {
 		fmt.Sprintf(
 			"path to a custom SQLite database file to use, if not using postgres; defaults to ./mcpjungle.db (overrides env var %s)",
 			SQLiteDBPathEnvVar,
+		),
+	)
+	startServerCmd.Flags().StringSliceVar(
+		&startServerCmdSkillsDirs,
+		"skills-dir",
+		nil,
+		fmt.Sprintf(
+			"directory containing Agent Skills (folders with a SKILL.md file) to expose through the MCP gateway;"+
+				" can be repeated (overrides env var %s)",
+			SkillsDirEnvVar,
 		),
 	)
 	startServerCmd.Flags().BoolVar(
@@ -276,6 +293,22 @@ func getSQLiteDBPathOverride() string {
 		return strings.TrimSpace(startServerCmdSQLiteDBPath)
 	}
 	return strings.TrimSpace(os.Getenv(SQLiteDBPathEnvVar))
+}
+
+// getSkillsDirs returns the directories to load Agent Skills from.
+// precedence: command line flag > environment variable > none (skills disabled)
+func getSkillsDirs() []string {
+	dirs := startServerCmdSkillsDirs
+	if len(dirs) == 0 {
+		dirs = filepath.SplitList(os.Getenv(SkillsDirEnvVar))
+	}
+	var out []string
+	for _, d := range dirs {
+		if d = strings.TrimSpace(d); d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // getEnvOrFile returns the value of the given environment variable.
@@ -490,6 +523,19 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	mcpService, err := mcp.NewMCPService(mcpServiceConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP service: %v", err)
+	}
+
+	if skillsDirs := getSkillsDirs(); len(skillsDirs) > 0 {
+		skillStore, err := skills.Load(skillsDirs)
+		if err != nil {
+			return fmt.Errorf("failed to load skills: %v", err)
+		}
+		if err := mcpService.RegisterSkills(skillStore); err != nil {
+			return fmt.Errorf("failed to register skills: %v", err)
+		}
+		log.Printf(
+			"[server] loaded %d skill(s) from %s\n", len(skillStore.List()), strings.Join(skillsDirs, ", "),
+		)
 	}
 
 	mcpClientService := mcpclient.NewMCPClientService(dbConn)

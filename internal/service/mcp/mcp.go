@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/service/skills"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"gorm.io/gorm"
 )
@@ -52,6 +53,10 @@ type MCPService struct {
 
 	// sessionManager manages persistent connections for MCP servers configured in stateful mode.
 	sessionManager *SessionManager
+
+	// skillStore holds the Agent Skills exposed by the built-in skills server.
+	// It is nil when skills are not enabled.
+	skillStore *skills.Store
 }
 
 // NewMCPService creates a new instance of MCPService.
