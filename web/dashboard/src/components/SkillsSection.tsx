@@ -618,7 +618,7 @@ export function SkillsSection({ onFeedback }: { onFeedback: (feedback: SkillsFee
                               <dl className="tool-detail-meta">
                                 <div className="tool-detail-description">
                                   <dt>Description</dt>
-                                  <dd>{skill.description}</dd>
+                                  <dd className="skill-description-text">{skill.description}</dd>
                                 </div>
                                 {skill.license ? (
                                   <div>
