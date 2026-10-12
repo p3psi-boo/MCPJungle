@@ -16,6 +16,26 @@ var errSkillsDisabled = fmt.Errorf(
 	apierrors.ErrInvalidInput,
 )
 
+func toSkillDetail(sk *skills.Skill) (types.SkillDetail, error) {
+	instructions, err := sk.Instructions()
+	if err != nil {
+		return types.SkillDetail{}, err
+	}
+	files, truncated, err := sk.Files()
+	if err != nil {
+		return types.SkillDetail{}, err
+	}
+	if files == nil {
+		files = []string{}
+	}
+	return types.SkillDetail{
+		Skill:          toSkillType(sk),
+		Instructions:   instructions,
+		Files:          files,
+		FilesTruncated: truncated,
+	}, nil
+}
+
 func toSkillType(sk *skills.Skill) types.Skill {
 	out := types.Skill{
 		Name:          sk.Name,
@@ -76,25 +96,73 @@ func (s *Server) getSkillHandler() gin.HandlerFunc {
 			handleServiceError(c, err)
 			return
 		}
-		instructions, err := sk.Instructions()
+		detail, err := toSkillDetail(sk)
 		if err != nil {
 			handleServiceError(c, err)
 			return
 		}
-		files, truncated, err := sk.Files()
-		if err != nil {
-			handleServiceError(c, err)
+		c.JSON(http.StatusOK, detail)
+	}
+}
+
+func (s *Server) createSkillHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		store := s.skillStoreOrAbort(c)
+		if store == nil {
 			return
 		}
-		if files == nil {
-			files = []string{}
+		var input types.CreateSkillInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, types.APIErrorResponse{Error: err.Error()})
+			return
 		}
-		c.JSON(http.StatusOK, types.SkillDetail{
-			Skill:          toSkillType(sk),
-			Instructions:   instructions,
-			Files:          files,
-			FilesTruncated: truncated,
+		sk, err := store.Create(skills.Content{
+			Name:          input.Name,
+			Description:   input.Description,
+			License:       input.License,
+			Compatibility: input.Compatibility,
+			Instructions:  input.Instructions,
 		})
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		detail, err := toSkillDetail(sk)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusCreated, detail)
+	}
+}
+
+func (s *Server) editSkillHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		store := s.skillStoreOrAbort(c)
+		if store == nil {
+			return
+		}
+		var input types.EditSkillInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, types.APIErrorResponse{Error: err.Error()})
+			return
+		}
+		sk, err := store.Edit(c.Param("name"), skills.Content{
+			Description:   input.Description,
+			License:       input.License,
+			Compatibility: input.Compatibility,
+			Instructions:  input.Instructions,
+		})
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		detail, err := toSkillDetail(sk)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, detail)
 	}
 }
 

@@ -13,6 +13,11 @@ var (
 	skillsAddCmdAll       bool
 	skillsAddCmdOverwrite bool
 	skillsAddCmdList      bool
+
+	skillsWriteDescription   string
+	skillsWriteLicense       string
+	skillsWriteCompatibility string
+	skillsWriteInstructions  string
 )
 
 var skillsCmd = &cobra.Command{
@@ -93,13 +98,44 @@ var skillsReloadCmd = &cobra.Command{
 	},
 }
 
+var skillsCreateCmd = &cobra.Command{
+	Use:   "create <name>",
+	Short: "Create a skill from scratch",
+	Long: "Write a new Agent Skill into the server's skills install directory.\n\n" +
+		"The name must use lowercase letters, digits and single hyphens.",
+	Example: "  mcpjungle skills create code-review --description \"Review pull requests\" --instructions \"Start with the diff.\"",
+	Args:    cobra.ExactArgs(1),
+	RunE:    runSkillsCreate,
+}
+
+var skillsEditCmd = &cobra.Command{
+	Use:   "edit <name>",
+	Short: "Edit an existing skill's SKILL.md",
+	Long: "Rewrite the instructions and metadata of an existing skill.\n\n" +
+		"Flags you omit keep their current values.",
+	Example: "  mcpjungle skills edit code-review --description \"Review diffs carefully\" --instructions \"Focus on tests.\"",
+	Args:    cobra.ExactArgs(1),
+	RunE:    runSkillsEdit,
+}
+
 func init() {
 	skillsAddCmd.Flags().StringSliceVar(&skillsAddCmdSkills, "skill", nil, "name of a skill to install; can be repeated")
 	skillsAddCmd.Flags().BoolVar(&skillsAddCmdAll, "all", false, "install every skill in the source")
 	skillsAddCmd.Flags().BoolVar(&skillsAddCmdOverwrite, "overwrite", false, "replace skills that are already installed")
 	skillsAddCmd.Flags().BoolVar(&skillsAddCmdList, "list", false, "only list the skills in the source, don't install")
 
-	skillsCmd.AddCommand(skillsListCmd, skillsAddCmd, skillsRemoveCmd, skillsUpdateCmd, skillsReloadCmd)
+	for _, cmd := range []*cobra.Command{skillsCreateCmd, skillsEditCmd} {
+		cmd.Flags().StringVar(&skillsWriteDescription, "description", "", "short description used to decide when to load the skill")
+		cmd.Flags().StringVar(&skillsWriteLicense, "license", "", "optional license")
+		cmd.Flags().StringVar(&skillsWriteCompatibility, "compatibility", "", "optional compatibility notes")
+		cmd.Flags().StringVar(&skillsWriteInstructions, "instructions", "", "markdown body of SKILL.md, without frontmatter")
+	}
+	_ = skillsCreateCmd.MarkFlagRequired("description")
+
+	skillsCmd.AddCommand(
+		skillsListCmd, skillsAddCmd, skillsCreateCmd, skillsEditCmd,
+		skillsRemoveCmd, skillsUpdateCmd, skillsReloadCmd,
+	)
 	rootCmd.AddCommand(skillsCmd)
 }
 
@@ -183,5 +219,52 @@ func runSkillsAdd(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Printf("Installed %d skill(s): %s\n", len(installed), strings.Join(installed, ", "))
 	cmd.Println("MCP clients can use them right away through the skills__* tools and prompts.")
+	return nil
+}
+
+func runSkillsCreate(cmd *cobra.Command, args []string) error {
+	sk, err := apiClient.CreateSkill(&types.CreateSkillInput{
+		Name:          args[0],
+		Description:   skillsWriteDescription,
+		License:       skillsWriteLicense,
+		Compatibility: skillsWriteCompatibility,
+		Instructions:  skillsWriteInstructions,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create skill %s: %w", args[0], err)
+	}
+	cmd.Printf("Created skill %s\n", sk.Name)
+	cmd.Println("MCP clients can use it right away through the skills__* tools and prompts.")
+	return nil
+}
+
+func runSkillsEdit(cmd *cobra.Command, args []string) error {
+	existing, err := apiClient.GetSkill(args[0])
+	if err != nil {
+		return fmt.Errorf("failed to load skill %s: %w", args[0], err)
+	}
+	input := &types.EditSkillInput{
+		Description:   existing.Description,
+		License:       existing.License,
+		Compatibility: existing.Compatibility,
+		Instructions:  existing.Instructions,
+	}
+	if cmd.Flags().Changed("description") {
+		input.Description = skillsWriteDescription
+	}
+	if cmd.Flags().Changed("license") {
+		input.License = skillsWriteLicense
+	}
+	if cmd.Flags().Changed("compatibility") {
+		input.Compatibility = skillsWriteCompatibility
+	}
+	if cmd.Flags().Changed("instructions") {
+		input.Instructions = skillsWriteInstructions
+	}
+	sk, err := apiClient.EditSkill(args[0], input)
+	if err != nil {
+		return fmt.Errorf("failed to edit skill %s: %w", args[0], err)
+	}
+	cmd.Printf("Updated skill %s\n", sk.Name)
 	return nil
 }

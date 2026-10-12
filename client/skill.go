@@ -90,6 +90,25 @@ func (c *Client) InstallSkills(input *types.InstallSkillsInput) (*types.InstallS
 	return &out, nil
 }
 
+// CreateSkill writes a new skill from scratch into the server's install directory.
+func (c *Client) CreateSkill(input *types.CreateSkillInput) (*types.SkillDetail, error) {
+	var out types.SkillDetail
+	if err := c.doSkillsRequest(http.MethodPost, "/skills/create", input, http.StatusCreated, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// EditSkill rewrites the SKILL.md of an existing skill.
+func (c *Client) EditSkill(name string, input *types.EditSkillInput) (*types.SkillDetail, error) {
+	var out types.SkillDetail
+	path := "/skills/" + url.PathEscape(name)
+	if err := c.doSkillsRequest(http.MethodPut, path, input, http.StatusOK, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // UpdateSkill reinstalls a skill from the source it was installed from.
 func (c *Client) UpdateSkill(name string) (*types.Skill, error) {
 	var out types.Skill

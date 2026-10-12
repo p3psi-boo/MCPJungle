@@ -80,8 +80,9 @@ func skillNames(t *testing.T, f *fixture) []string {
 
 func TestSkillToolsDependOnSkillsConfiguration(t *testing.T) {
 	skillTools := []string{
-		listSkillsToolName, reloadSkillsToolName, previewSkillsToolName,
-		installSkillsToolName, updateSkillToolName, removeSkillToolName,
+		listSkillsToolName, reloadSkillsToolName, editSkillToolName,
+		previewSkillsToolName, installSkillsToolName, updateSkillToolName,
+		removeSkillToolName, createSkillToolName,
 	}
 	present := func(f *fixture) []bool {
 		names := f.listToolNames(t, devCtx())
@@ -92,9 +93,9 @@ func TestSkillToolsDependOnSkillsConfiguration(t *testing.T) {
 		return out
 	}
 
-	assert.Equal(t, []bool{false, false, false, false, false, false}, present(newFixture(t)))
-	assert.Equal(t, []bool{true, true, false, false, false, false}, present(newFixtureWithSkills(t, newSkillStore(t, false))))
-	assert.Equal(t, []bool{true, true, true, true, true, true}, present(newFixtureWithSkills(t, newSkillStore(t, true))))
+	assert.Equal(t, []bool{false, false, false, false, false, false, false, false}, present(newFixture(t)))
+	assert.Equal(t, []bool{true, true, true, false, false, false, false, false}, present(newFixtureWithSkills(t, newSkillStore(t, false))))
+	assert.Equal(t, []bool{true, true, true, true, true, true, true, true}, present(newFixtureWithSkills(t, newSkillStore(t, true))))
 }
 
 func TestSkillLifecycle(t *testing.T) {
@@ -166,4 +167,30 @@ func TestReloadSkillsPicksUpChangesOnDisk(t *testing.T) {
 	require.Equal(t, "", f.call(t, devCtx(), reloadSkillsToolName, nil, &out))
 	assert.Equal(t, 2, out.SkillCount)
 	assert.Contains(t, skillNames(t, f), "manual")
+}
+
+func TestCreateAndEditSkillTools(t *testing.T) {
+	f := newFixtureWithSkills(t, newSkillStore(t, true))
+	ctx := devCtx()
+
+	var created skillSummary
+	require.Equal(t, "", f.call(t, ctx, createSkillToolName, map[string]any{
+		"name": "code-review", "description": "Review pull requests", "instructions": "Start with the diff.",
+	}, &created))
+	assert.Equal(t, "code-review", created.Name)
+	assert.True(t, created.Removable)
+	assert.Contains(t, skillNames(t, f), "code-review")
+
+	assert.Contains(t, f.call(t, ctx, createSkillToolName, map[string]any{
+		"name": "code-review", "description": "duplicate",
+	}, nil), "already exists")
+
+	var edited skillSummary
+	require.Equal(t, "", f.call(t, ctx, editSkillToolName, map[string]any{
+		"name": "local-skill", "description": "Updated local skill", "instructions": "New body.",
+	}, &edited))
+	assert.Equal(t, "Updated local skill", edited.Description)
+	assert.False(t, edited.Removable)
+
+	assert.Contains(t, f.call(t, ctx, editSkillToolName, map[string]any{"name": "missing"}, nil), "not found")
 }

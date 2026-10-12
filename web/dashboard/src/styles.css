@@ -905,6 +905,10 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.skill-description-text {
+  white-space: pre-wrap;
+}
+
 .tool-schema-section {
   display: grid;
   gap: 10px;
@@ -1116,6 +1120,10 @@ button:disabled {
   padding: 16px;
 }
 
+.modal-panel-wide {
+  width: min(840px, 100%);
+}
+
 .modal-header,
 .modal-footer {
   display: flex;
@@ -1160,6 +1168,24 @@ button:disabled {
 .form-textarea {
   min-height: 120px;
   resize: vertical;
+}
+
+.form-textarea-description {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.form-textarea-tall {
+  min-height: 240px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .key-value-list {
@@ -1488,9 +1514,41 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.skill-mode-tabs {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.skill-mode-tab {
+  padding: 7px 14px;
+  border: 0;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.skill-mode-tab.is-active {
+  background: #f6f8fa;
+  color: inherit;
+  font-weight: 600;
+}
+
+.skill-edit-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(210, 153, 34, 0.28);
+  border-radius: 10px;
+  background: #fff8c5;
+  color: #633c01;
+  font-size: 0.9rem;
+}
+
 .skills-table .row-actions {
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .skills-table td:nth-child(4) {

@@ -12,6 +12,8 @@ import (
 const (
 	listSkillsToolName    = "list_skills"
 	reloadSkillsToolName  = "reload_skills"
+	createSkillToolName   = "create_skill"
+	editSkillToolName     = "edit_skill"
 	previewSkillsToolName = "preview_skills"
 	installSkillsToolName = "install_skills"
 	updateSkillToolName   = "update_skill"
@@ -34,7 +36,7 @@ func newSkillSummary(sk *skills.Skill) skillSummary {
 }
 
 // skillTools returns the skill management tools. Without a skill store there are none,
-// and without an install directory only the tools that don't write skills are returned.
+// and without an install directory only list, reload and edit are returned.
 func (s *Service) skillTools() []server.ServerTool {
 	store := s.mcpService.SkillStore()
 	if store == nil {
@@ -64,6 +66,24 @@ func (s *Service) skillTools() []server.ServerTool {
 				mcpgo.WithOpenWorldHintAnnotation(false),
 			),
 			Handler: s.handleReloadSkills,
+		},
+		{
+			Tool: mcpgo.NewTool(
+				toolName(editSkillToolName),
+				mcpgo.WithDescription(
+					"Rewrite the SKILL.md of an existing skill. Fields you omit keep their current values. "+
+						"The skill name cannot be changed. Bundled files are left in place.",
+				),
+				mcpgo.WithString("name", mcpgo.Required(), mcpgo.Description("Name of the skill to edit")),
+				mcpgo.WithString("description", mcpgo.Description("Short description used to decide when to load the skill")),
+				mcpgo.WithString("instructions", mcpgo.Description("Markdown body of SKILL.md, without frontmatter")),
+				mcpgo.WithString("license", mcpgo.Description("Optional license")),
+				mcpgo.WithString("compatibility", mcpgo.Description("Optional compatibility notes")),
+				mcpgo.WithDestructiveHintAnnotation(true),
+				mcpgo.WithIdempotentHintAnnotation(true),
+				mcpgo.WithOpenWorldHintAnnotation(false),
+			),
+			Handler: s.handleEditSkill,
 		},
 	}
 	if store.InstallDir() == "" {
@@ -127,6 +147,28 @@ func (s *Service) skillTools() []server.ServerTool {
 				mcpgo.WithOpenWorldHintAnnotation(false),
 			),
 			Handler: s.handleRemoveSkill,
+		},
+		server.ServerTool{
+			Tool: mcpgo.NewTool(
+				toolName(createSkillToolName),
+				mcpgo.WithDescription(
+					"Create a new Agent Skill from scratch and serve it to every client. "+
+						"The name must use lowercase letters, digits and single hyphens.",
+				),
+				mcpgo.WithString("name", mcpgo.Required(), mcpgo.Description("Skill name, eg- code-review")),
+				mcpgo.WithString(
+					"description",
+					mcpgo.Required(),
+					mcpgo.Description("Short description used to decide when to load the skill"),
+				),
+				mcpgo.WithString("instructions", mcpgo.Description("Markdown body of SKILL.md, without frontmatter")),
+				mcpgo.WithString("license", mcpgo.Description("Optional license")),
+				mcpgo.WithString("compatibility", mcpgo.Description("Optional compatibility notes")),
+				mcpgo.WithDestructiveHintAnnotation(true),
+				mcpgo.WithIdempotentHintAnnotation(false),
+				mcpgo.WithOpenWorldHintAnnotation(false),
+			),
+			Handler: s.handleCreateSkill,
 		},
 	)
 }
@@ -203,4 +245,52 @@ func (s *Service) handleRemoveSkill(_ context.Context, request mcpgo.CallToolReq
 		return mcpgo.NewToolResultError(err.Error()), nil
 	}
 	return mcpgo.NewToolResultJSON(map[string]any{"removed": name})
+}
+
+func (s *Service) handleCreateSkill(_ context.Context, request mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	name, err := request.RequireString("name")
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	description, err := request.RequireString("description")
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	sk, err := s.mcpService.SkillStore().Create(skills.Content{
+		Name:          name,
+		Description:   description,
+		License:       request.GetString("license", ""),
+		Compatibility: request.GetString("compatibility", ""),
+		Instructions:  request.GetString("instructions", ""),
+	})
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	return mcpgo.NewToolResultJSON(newSkillSummary(sk))
+}
+
+func (s *Service) handleEditSkill(_ context.Context, request mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	name, err := request.RequireString("name")
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	store := s.mcpService.SkillStore()
+	sk, err := store.Get(name)
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	instructions, err := sk.Instructions()
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	sk, err = store.Edit(name, skills.Content{
+		Description:   request.GetString("description", sk.Description),
+		License:       request.GetString("license", sk.License),
+		Compatibility: request.GetString("compatibility", sk.Compatibility),
+		Instructions:  request.GetString("instructions", instructions),
+	})
+	if err != nil {
+		return mcpgo.NewToolResultError(err.Error()), nil
+	}
+	return mcpgo.NewToolResultJSON(newSkillSummary(sk))
 }

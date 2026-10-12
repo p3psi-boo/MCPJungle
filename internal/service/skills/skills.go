@@ -1,5 +1,5 @@
 // Package skills discovers Agent Skills (directories containing a SKILL.md file) on the local
-// filesystem and provides safe, read-only access to their instructions and bundled files.
+// filesystem and provides access to their instructions and bundled files.
 //
 // A skill follows the Agent Skills format (https://agentskills.io/specification):
 //
@@ -75,10 +75,10 @@ type Skill struct {
 type frontmatter struct {
 	Name          string         `yaml:"name"`
 	Description   string         `yaml:"description"`
-	License       string         `yaml:"license"`
-	Compatibility string         `yaml:"compatibility"`
-	AllowedTools  string         `yaml:"allowed-tools"`
-	Metadata      map[string]any `yaml:"metadata"`
+	License       string         `yaml:"license,omitempty"`
+	Compatibility string         `yaml:"compatibility,omitempty"`
+	AllowedTools  string         `yaml:"allowed-tools,omitempty"`
+	Metadata      map[string]any `yaml:"metadata,omitempty"`
 }
 
 // Store holds the set of skills loaded from one or more root directories.
