@@ -126,7 +126,7 @@ function SkillWriteFields({
           <input
             className="table-filter form-input"
             onChange={(event) => onChange({ license: event.target.value })}
-            placeholder="MIT"
+            placeholder="Optional, eg MIT"
             value={form.license}
           />
         </label>
