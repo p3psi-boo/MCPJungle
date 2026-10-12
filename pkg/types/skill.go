@@ -78,3 +78,20 @@ type InstallSkillsInput struct {
 type InstallSkillsResponse struct {
 	Installed []Skill `json:"installed"`
 }
+
+// CreateSkillInput is the request body of the create-skill endpoint.
+type CreateSkillInput struct {
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	License       string `json:"license,omitempty"`
+	Compatibility string `json:"compatibility,omitempty"`
+	Instructions  string `json:"instructions"`
+}
+
+// EditSkillInput is the request body of the edit-skill endpoint.
+type EditSkillInput struct {
+	Description   string `json:"description"`
+	License       string `json:"license,omitempty"`
+	Compatibility string `json:"compatibility,omitempty"`
+	Instructions  string `json:"instructions"`
+}

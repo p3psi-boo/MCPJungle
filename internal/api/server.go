@@ -305,7 +305,9 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.POST("/skills", s.installSkillsHandler())
 		adminAPI.POST("/skills/preview", s.previewSkillsHandler())
 		adminAPI.POST("/skills/reload", s.reloadSkillsHandler())
+		adminAPI.POST("/skills/create", s.createSkillHandler())
 		adminAPI.POST("/skills/:name/update", s.updateSkillHandler())
+		adminAPI.PUT("/skills/:name", s.editSkillHandler())
 		adminAPI.DELETE("/skills/:name", s.removeSkillHandler())
 
 		// endpoints for managing MCP clients (enterprise mode only)
@@ -390,7 +392,9 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			dashboardAPI.POST("/skills", s.installSkillsHandler())
 			dashboardAPI.POST("/skills/preview", s.previewSkillsHandler())
 			dashboardAPI.POST("/skills/reload", s.reloadSkillsHandler())
+			dashboardAPI.POST("/skills/create", s.createSkillHandler())
 			dashboardAPI.POST("/skills/:name/update", s.updateSkillHandler())
+			dashboardAPI.PUT("/skills/:name", s.editSkillHandler())
 			dashboardAPI.DELETE("/skills/:name", s.removeSkillHandler())
 		}
 	}

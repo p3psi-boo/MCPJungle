@@ -1,6 +1,8 @@
 import type {
+  DashboardCreateSkillInput,
   DashboardCreateToolGroupInput,
   DashboardDiagnosticsResponse,
+  DashboardEditSkillInput,
   DashboardInstallSkillsInput,
   DashboardInstallSkillsResponse,
   DashboardOAuthSessionResponse,
@@ -104,6 +106,18 @@ export const api = {
   installSkills: (body: DashboardInstallSkillsInput) =>
     requestJSON<DashboardInstallSkillsResponse>("/api/dashboard/skills", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  createSkill: (body: DashboardCreateSkillInput) =>
+    requestJSON<DashboardSkillDetail>("/api/dashboard/skills/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  editSkill: (name: string, body: DashboardEditSkillInput) =>
+    requestJSON<DashboardSkillDetail>(`/api/dashboard/skills/${encodeURIComponent(name)}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),

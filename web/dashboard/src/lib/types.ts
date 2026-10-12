@@ -248,3 +248,18 @@ export interface DashboardInstallSkillsInput {
 export interface DashboardInstallSkillsResponse {
   installed: DashboardSkill[];
 }
+
+export interface DashboardCreateSkillInput {
+  name: string;
+  description: string;
+  license?: string;
+  compatibility?: string;
+  instructions: string;
+}
+
+export interface DashboardEditSkillInput {
+  description: string;
+  license?: string;
+  compatibility?: string;
+  instructions: string;
+}
