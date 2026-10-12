@@ -1,43 +1,31 @@
 ---
 title: "Add Streamable HTTP MCP servers"
-description: "Register remote MCP servers in mcpjungle using CLI. Expose them via the mcp gateway."
+description: "Register remote MCP servers in mcpjungle from the dashboard. Expose them via the mcp gateway."
 ---
 
 MCP servers using the [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) can be added to Mcpjungle.
 
 Once registered, a server's tools, prompts, and resources are available to any MCP client that connects to mcpjungle mcp endpoint.
 
-## Register a server with CLI flags
+## Register a server from the dashboard
 
-The quickest way to register a Streamable HTTP server is with the `register` command and inline flags:
+Open the dashboard at [http://localhost:8080/](http://localhost:8080/) and click **+ Add Server**.
 
-```bash
-mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-```
+1. Set **Server name** to a unique identifier such as `context7`.
+2. Set **Transport** to `streamable_http`.
+3. Set **URL** to the MCP endpoint, for example `https://mcp.context7.com/mcp`.
+4. Optionally add a description, bearer token, or custom headers.
+5. Click **Register**.
 
-Here's an example of adding a custom MCP server running on your local machine
-
-```bash
-mcpjungle register --name calculator --description "Provides some basic math tools" --url http://127.0.0.1:5000/mcp
-```
+Here's an example of adding a custom MCP server running on your local machine: use name `calculator`, URL `http://127.0.0.1:5000/mcp`, and a short description such as "Provides some basic math tools".
 
 <Note>
-If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead:
-
-```bash
-mcpjungle register --name calculator --description "Provides some basic math tools" --url http://host.docker.internal:5000/mcp
-```
+If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead, for example `http://host.docker.internal:5000/mcp`.
 </Note>
 
-## Register a server from a config file
+## Server fields
 
-For servers that need authentication or custom headers — or when you want to keep registration configs in version control — use a JSON config file:
-
-```bash
-mcpjungle register -c ./deepwiki.json
-```
-
-The full config file format for a Streamable HTTP server is:
+The dashboard form uses the same fields as the HTTP API. The full Streamable HTTP payload is:
 
 ```json
 {
@@ -61,10 +49,10 @@ The full config file format for a Streamable HTTP server is:
 | -------------- | -------- |------------------------------------------------------------------------------------------------------------------------------|
 | `name`         | Yes      | Unique identifier for this server. No spaces, special characters, or consecutive underscores.                                |
 | `transport`    | Yes      | Must be `"streamable_http"`. Other possible values are `"sse"` and `"stdio"`.                                                |
-| `description`  | No       | Human-readable description surfaced in the CLI and API.                                                                      |
+| `description`  | No       | Human-readable description surfaced in the dashboard and API.                                                                |
 | `url`          | Yes      | The full URL of the MCP server's endpoint (e.g., `https://example.com/mcp`). Required when transport is streamable http.     |
 | `bearer_token` | No       | If set, Mcpjungle adds `Authorization: Bearer <token>` to every request to this server.                                      |
-| `oauth_redirect_uri` | No | Redirect URI to use if the upstream server requires OAuth. When using the CLI interactively, Mcpjungle can usually generate a localhost callback automatically. |
+| `oauth_redirect_uri` | No | Redirect URI to use if the upstream server requires OAuth. The dashboard supplies its own callback automatically. |
 | `oauth_client_id` | No | Optional pre-registered OAuth client ID to use instead of dynamic client registration. |
 | `oauth_client_secret` | No | Optional OAuth client secret paired with `oauth_client_id`. |
 | `oauth_scopes` | No | Optional list of scopes to request during the upstream OAuth flow. |
@@ -73,17 +61,7 @@ The full config file format for a Streamable HTTP server is:
 
 ## Authenticating with a bearer token
 
-Many SaaS-hosted MCP servers require a static API token. Pass it with the `--bearer-token` flag:
-
-```bash
-mcpjungle register \
-  --name huggingface \
-  --description "HuggingFace MCP Server" \
-  --url https://huggingface.co/mcp \
-  --bearer-token <your-hf-api-token>
-```
-
-Or include it in the config file:
+Many SaaS-hosted MCP servers require a static API token. Enter it in the **Bearer token** field on **+ Add Server**, or include it in the JSON payload:
 
 ```json
 {
@@ -117,16 +95,10 @@ Upstream OAuth support is currently in beta.
 
 If the upstream MCP server responds with `401 Unauthorized` and advertises OAuth, Mcpjungle can complete that authorization flow during registration.
 
-Typical CLI flow:
+Typical dashboard flow:
 
-```bash
-mcpjungle register --name todoist --url https://ai.todoist.net/mcp
-```
-
-What happens next:
-
-1. Mcpjungle attempts a normal registration first.
-2. If the upstream server requires OAuth, the CLI opens your browser.
+1. Register the server from **+ Add Server** with its URL, for example `https://ai.todoist.net/mcp`.
+2. If the upstream server requires OAuth, the dashboard asks you to continue in the browser.
 3. You approve access.
 4. Mcpjungle stores the resulting upstream token and completes registration automatically.
 
@@ -152,41 +124,27 @@ See the [configuration file reference](/reference/config-file#$var_name-placehol
 
 ## Verify the registration
 
-After registering a server, inspect what Mcpjungle discovered:
+After registering a server, open the **Tools** page in the dashboard to inspect what Mcpjungle discovered. Expand a tool to see its input schema.
 
-```bash
-mcpjungle list tools
+Point an MCP client at `http://localhost:8080/mcp` to call the tool through the gateway.
 
-# get the usage schema of a tool
-mcpjungle usage deepwiki__read_wiki_structure
+## Remove a server
 
-# call a tool from cli
-mcpjungle invoke deepwiki__read_wiki_structure --input '{"repoName": "facebook/react"}'
-```
+On the **Servers** page, use the delete action on the server row.
 
-That is the quickest way to confirm both the upstream server and Mcpjungle routing are working as expected.
-
-## Deregister a server
-
-To remove a server from Mcpjungle:
-
-```bash
-mcpjungle deregister deepwiki
-```
-
-Deregistering removes the server and all the tools, prompts, and resources it provided. They are no longer accessible by clients using mcpjungle.
+Removing a server also removes the tools, prompts, and resources it provided. They are no longer accessible by clients using mcpjungle.
 
 ## Related pages
 
 <CardGroup cols={2}>
   <Card title="STDIO servers" icon="terminal" href="/guides/register-stdio-servers">
-    Register local process-based MCP servers using JSON config files.
+    Register local process-based MCP servers from the dashboard.
   </Card>
   <Card title="Connect Claude Desktop" icon="plug" href="/integrations/claude">
     Connect Claude Desktop to Mcpjungle and start using your registered tools through one MCP endpoint.
   </Card>
   <Card title="Tools and prompts" icon="toolbox" href="/guides/tools-and-prompts">
-    List, invoke, enable, disable, and retrieve what registered servers expose.
+    Inspect, enable, and disable what registered servers expose.
   </Card>
   <Card title="Config file reference" icon="file-code" href="/reference/config-file">
     See the full JSON schema details for server registration files.

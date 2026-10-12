@@ -74,19 +74,17 @@ docker compose up -d
 This exposes mcpjungle's streamable http mcp server at `http://localhost:8080/mcp` by default.
 
 ### Add an MCP server
-1. Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
-```bash
-brew install mcpjungle/mcpjungle/mcpjungle
-```
+Open the dashboard at [http://localhost:8080/](http://localhost:8080/).
 
- 2. Add the [context7](https://context7.com/) MCP server to mcpjungle using the CLI:
-```bash
-mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-```
+1. Click **+ Add Server**.
+2. Set **Server name** to `context7`.
+3. Set **Transport** to `streamable_http`.
+4. Set **URL** to `https://mcp.context7.com/mcp`.
+5. Click **Register**.
 
-You should see output similar to this:
+The server appears on the Servers page. Open **Tools** to confirm `context7__get-library-docs` was discovered.
 
-![register-context7](./docs/images/register-context7.png)
+![MCPJungle dashboard UI](./docs/images/dashboard-ui.png)
 
 ### Connect to mcpjungle
 

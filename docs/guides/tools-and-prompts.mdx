@@ -1,17 +1,17 @@
 ---
 title: "Manage tools and prompts"
-description: "List, inspect, invoke, enable, and disable the tools and prompts exposed by the MCP servers registered in Mcpjungle."
+description: "List, inspect, enable, and disable the tools and prompts exposed by the MCP servers registered in Mcpjungle."
 ---
 
 Once an MCP server is registered, Mcpjungle tracks what it exposes and lets you manage that surface area without removing the server itself.
 
 This page covers:
 
-- listing tools and prompts
+- listing tools and prompts in the dashboard
 - checking tool usage (input schema)
-- invoking tools
-- retrieving prompts
 - enabling and disabling tools, prompts, and entire servers
+
+MCP clients invoke tools and read prompts through the gateway endpoint. Use the dashboard to inspect and control what those clients can see.
 
 ## Tools
 
@@ -25,44 +25,15 @@ See [core concepts](/core-concepts#canonical-names) for more details on names.
 
 ### List available tools
 
-```bash
-mcpjungle list tools
-```
-
-To scope the list to a specific server:
-
-```bash
-mcpjungle list tools --server context7
-```
-
-To scope the list to a [Tool Group](/core-concepts#groups):
-
-```bash
-mcpjungle list tools --group claude-tools
-```
+Open the **Tools** page in the dashboard. Filter by name or server to find a specific tool.
 
 ### Inspect tool usage
 
-```bash
-mcpjungle usage deepwiki__read_wiki_structure
-```
-
-This shows the tool schema and expected input shape.
+Expand a tool row to see its input fields and raw schema.
 
 ### Invoke a tool
-Ideally, tools will be invoked by your MCP clients through the gateway.
 
-The CLI allows you to invoke tools directly for testing and debugging.
-
-```bash
-mcpjungle invoke deepwiki__read_wiki_structure --input '{"repoName": "facebook/react"}'
-```
-
-You can also invoke through a Tool Group context:
-
-```bash
-mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "README.md"}'
-```
+Tools are invoked by your MCP clients through the gateway. Point the client at `/mcp` (or a [tool group](/guides/tool-groups) endpoint) and ask it to call the canonical tool name.
 
 ## Prompts
 
@@ -76,21 +47,11 @@ Prompt names follow the same canonical pattern:
 
 ### List prompts
 
-```bash
-mcpjungle list prompts
-mcpjungle list prompts --server huggingface
-```
+Open the **Prompts** page in the dashboard. Filter by name or server to find a specific prompt.
 
 ### Retrieve a prompt with arguments
-As with tools, prompts will also be read by your MCP clients.
 
-Use the CLI to retrieve prompts directly for testing and debugging:
-
-```bash
-mcpjungle get prompt "huggingface__Model Details" --arg model_id="openai/gpt-oss-120b"
-```
-
-Pass one `--arg key=value` flag per prompt argument.
+MCP clients read prompts through the gateway. Expand a prompt row in the dashboard to inspect its arguments before pointing a client at it.
 
 ## Enable and disable exposure
 
@@ -100,42 +61,21 @@ When you disable something:
 
 - it disappears from gateway discovery
 - MCP clients cannot call it through Mcpjungle
-- you can still manage it through the CLI and API
+- you can still inspect it and re-enable it from the dashboard
 
 All tools and prompts are enabled by default when a server is first registered.
 
 ### Disable or re-enable a single tool
 
-```bash
-mcpjungle disable tool context7__get-library-docs
-mcpjungle enable tool context7__get-library-docs
-```
-
-### Disable or re-enable all tools from one server
-
-```bash
-mcpjungle disable tool context7
-mcpjungle enable tool context7
-```
+On the **Tools** page, use **Disable** or **Enable** on the tool row.
 
 ### Disable or re-enable an entire server
 
-Disabling a server disables all of its tools, prompts and resources in one step:
-
-```bash
-mcpjungle disable server context7
-mcpjungle enable server context7
-```
+On the **Servers** page, use **Disable** or **Enable** on the server row. Disabling a server disables all of its tools, prompts and resources in one step.
 
 ### Disable or re-enable prompts
 
-```bash
-mcpjungle disable prompt "huggingface__Model Details"
-mcpjungle enable prompt "huggingface__Model Details"
-
-mcpjungle disable prompt context7
-mcpjungle enable prompt context7
-```
+On the **Prompts** page, use **Disable** or **Enable** on the prompt row.
 
 ## How disabled entities behave
 
@@ -143,12 +83,12 @@ mcpjungle enable prompt context7
 |---|-----------------------------------------------------------------------------|
 | Main gateway (`/mcp`) | Disabled tools, prompts and resources are not listed and cannot be called.                 |
 | Tool Groups | A disabled tool does not remain available just because a group includes it. |
-| CLI and HTTP API | Disabled entities can still be listed, inspected, and re-enabled.           |
+| Dashboard and HTTP API | Disabled entities can still be listed, inspected, and re-enabled.           |
 
 ## Operational notes
 
 - Disabling a server or tool does not remove its registration.
-- Deregister a server if you want to remove it permanently.
+- Delete a server from the **Servers** page if you want to remove it permanently.
 
 ## Related pages
 

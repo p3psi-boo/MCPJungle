@@ -1,32 +1,17 @@
 ---
 title: "Manage Resources"
-description: "Inspect and read MCP resources exposed by servers registered in Mcpjungle."
+description: "Inspect MCP resources exposed by servers registered in Mcpjungle."
 ---
 
 When you register an MCP server, Mcpjungle also registers any resources exposed by that server.
 
 Each resource receives a URI that is unique across Mcpjungle. See [Core concepts](/core-concepts#resources) for the resource URI model and how Mcpjungle keeps resources from different servers distinct.
 
-## Get resource metadata
+## Inspect resources
 
-Use the `get resource` command with the resource URI to inspect metadata about a resource:
+Open the **Resources** page in the dashboard to see every registered resource, its server, MIME type, and URI.
 
-```bash
-# list available resources (useful for discovering resource URIs)
-mcpjungle list resources
-
-mcpjungle get resource mcpj://res/mintlify-mcpjungle/bWludGxpZnk6Ly9za2lsbHMvbWNwanVuZ2xl
-```
-
-## Read resource contents
-
-Add the `--read` flag to read the resource contents:
-
-```bash
-mcpjungle get resource --read mcpj://res/mintlify-mcpjungle/bWludGxpZnk6Ly9za2lsbHMvbWNwanVuZ2xl
-```
-
-Mcpjungle resolves the URI, routes the request to the upstream MCP server that owns the resource, and returns the resource contents.
+MCP clients read resource contents through the gateway. Copy a resource URI from the dashboard if you need to pass it to a client.
 
 ## Related pages
 

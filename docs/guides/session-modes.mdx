@@ -53,7 +53,7 @@ A persistent connection is closed in three situations:
     All stateful connections are closed during graceful shutdown of the Mcpjungle server process.
   </Card>
   <Card title="Server is deregistered" icon="trash">
-    Running `mcpjungle deregister <name>` closes the connection and removes the server from the registry.
+    Deleting the server from the dashboard closes the connection and removes it from the registry.
   </Card>
   <Card title="Idle timeout expires" icon="clock">
     If `SESSION_IDLE_TIMEOUT_SEC` is set on the Mcpjungle server, connections that have been idle for longer than that duration are closed automatically.

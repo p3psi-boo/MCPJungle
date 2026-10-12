@@ -8,23 +8,15 @@ This page shows practical registration examples for commonly used MCP servers. I
 - [Add Streamable HTTP MCP servers](/guides/register-http-servers)
 - [Add STDIO MCP servers](/guides/register-stdio-servers)
 
-Use direct CLI flags when a server only needs a name and URL. Use JSON config files when the server needs advanced configurations like authentication, OAuth, custom headers, environment variables, or `stateful` sessions.
+Enter a name and URL in **+ Add Server** when a server only needs those two fields. Use the extra dashboard fields (bearer token, headers, environment variables, session mode) when the server needs authentication, custom headers, or `stateful` sessions.
 
-For any JSON example on this page, register it with:
-
-```bash
-mcpjungle register -c ./<filename>.json
-```
+The JSON examples on this page match the dashboard form and the HTTP API payload.
 
 ## Hosted HTTP servers
 
 ### Context7: fastest possible registration
 
-If the upstream server is public and does not require extra configuration, register it directly with CLI flags:
-
-```bash
-mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-```
+If the upstream server is public and does not require extra configuration, open **+ Add Server**, set name `context7`, transport `streamable_http`, and URL `https://mcp.context7.com/mcp`.
 
 This is the simplest pattern for hosted Streamable HTTP servers.
 
@@ -74,17 +66,17 @@ Some hosted servers use OAuth instead of static API tokens. Figma is a good exam
 }
 ```
 
-If the upstream server advertises OAuth, the CLI opens a browser, you approve access, and Mcpjungle completes registration automatically.
+If the upstream server advertises OAuth, the dashboard asks you to continue in the browser, you approve access, and Mcpjungle completes registration automatically.
 
-### Todoist: OAuth flow from a direct CLI command
+### Todoist: OAuth flow from the dashboard
 
-Todoist is a good example of a hosted server where the fastest path is still a direct CLI command:
+Todoist is a good example of a hosted server that needs OAuth:
 
-```bash
-mcpjungle register --name todoist --url https://ai.todoist.net/mcp
-```
+1. Open **+ Add Server**.
+2. Set name `todoist`, transport `streamable_http`, and URL `https://ai.todoist.net/mcp`.
+3. Click **Register**, then approve access in the browser.
 
-Todoist enforces OAuth. Running this command starts the upstream OAuth flow in your browser, and Mcpjungle completes the registration after you approve access.
+Mcpjungle completes the registration after you authorize it.
 
 ## Local STDIO servers
 

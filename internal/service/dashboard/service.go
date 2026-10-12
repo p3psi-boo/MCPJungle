@@ -138,12 +138,7 @@ func (s *Service) Tools() (*types.DashboardToolsResponse, error) {
 	if len(resp.Tools) == 0 {
 		resp.EmptyState = emptyState(
 			"No tools discovered yet",
-			"MCPJungle is running, but it has not discovered any tools from registered servers yet.",
-			[]string{
-				"mcpjungle list tools --server context7",
-				"mcpjungle usage <tool-name>",
-				`mcpjungle invoke <tool-name> --input '{"key": "value"}'`,
-			},
+			"Register an MCP server from the Servers page. Discovered tools appear here, where you can inspect schemas and enable or disable them.",
 		)
 	}
 	return resp, nil
@@ -176,11 +171,7 @@ func (s *Service) Prompts() (*types.DashboardPromptsResponse, error) {
 	if len(resp.Prompts) == 0 {
 		resp.EmptyState = emptyState(
 			"No prompts discovered yet",
-			"Registered servers can expose prompt templates. None are currently available.",
-			[]string{
-				"mcpjungle list prompts",
-				"mcpjungle get prompt <prompt-name>",
-			},
+			"Register an MCP server from the Servers page. Prompt templates from that server appear here.",
 		)
 	}
 	return resp, nil
@@ -210,11 +201,7 @@ func (s *Service) Resources() (*types.DashboardResourcesResponse, error) {
 	if len(resp.Resources) == 0 {
 		resp.EmptyState = emptyState(
 			"No resources discovered yet",
-			"Registered servers can expose MCP resources. None are currently available.",
-			[]string{
-				"mcpjungle list resources",
-				"mcpjungle get resource --read <uri>",
-			},
+			"Register an MCP server from the Servers page. Resources from that server appear here.",
 		)
 	}
 	return resp, nil
@@ -502,7 +489,7 @@ func collectTroubleshootingHints(inventory []serverInventory, toolCount, promptC
 	if len(inventory) > 0 && (promptCount == 0 || resourceCount == 0) {
 		hints = append(hints, "Prompt/resource discovery failed")
 	}
-	hints = append(hints, "Check CLI logs for detailed errors")
+	hints = append(hints, "Check server logs for detailed errors")
 	return hints
 }
 
@@ -518,19 +505,14 @@ func hasDiscoveryGap(inventory []serverInventory) bool {
 func noServersEmptyState() *types.DashboardEmptyState {
 	return emptyState(
 		"No servers registered yet",
-		"Register an MCP server from the CLI, then refresh the dashboard to inspect tools, prompts, and resources.",
-		[]string{
-			"mcpjungle register --name context7 --url https://mcp.context7.com/mcp",
-			"mcpjungle list servers",
-		},
+		"Click + Add Server to register an MCP server, then inspect its tools, prompts, and resources here.",
 	)
 }
 
-func emptyState(title, description string, commands []string) *types.DashboardEmptyState {
+func emptyState(title, description string) *types.DashboardEmptyState {
 	return &types.DashboardEmptyState{
 		Title:       title,
 		Description: description,
-		Commands:    commands,
 	}
 }
 

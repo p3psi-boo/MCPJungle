@@ -1,16 +1,13 @@
 ---
 title: "Installation"
-description: "Install and run the mcpjungle CLI and gateway server"
+description: "Install and run the mcpjungle gateway server"
 ---
 
 Mcpjungle ships as a single binary.
 
-You will usually use this binary in two ways:
+Use this binary to run the gateway server, which manages all upstream MCPs and serves the HTTP API, dashboard, and MCP endpoints.
 
-- To run the Mcpjungle gateway server, which manages all upstream MCPs and serves the HTTP API & MCP endpoints
-- As a CLI client to manage the mcpjungle server and interact with the mcp gateway
-
-For individual users, the simplest (and recommended) setup is: install the CLI, then run the gateway with Docker Compose.
+For individual users, the simplest (and recommended) setup is to run the gateway with Docker Compose, then manage it from the dashboard at `http://localhost:8080/`.
 
 <Tabs>
   <Tab title="Homebrew">

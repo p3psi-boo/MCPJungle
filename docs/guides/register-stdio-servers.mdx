@@ -1,44 +1,35 @@
 ---
 title: "Add STDIO MCP servers"
-description: "Register stdio transport-based MCP servers in mcpjungle using CLI. Expose them via the mcp gateway."
+description: "Register stdio transport-based MCP servers in mcpjungle from the dashboard. Expose them via the mcp gateway."
 ---
 
 Mcpjungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio).
 
 These servers run as child processes on the same host as the Mcpjungle server and communicate through standard input and output. Common examples include [filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) and [time](https://github.com/modelcontextprotocol/servers/tree/main/src/time).
 
-Because STDIO servers run as local processes, you must register them using a JSON config file — the CLI flags only cover Streamable HTTP registration.
+Because STDIO servers run as local processes, register them from the dashboard with **Transport** set to `stdio`, then supply the command, arguments, and optional environment variables.
 
 ## Register a STDIO server
 
 <Steps>
-  <Step title="Write a config file">
-    Create a JSON file describing your server. Here is an example for the official MCP filesystem server:
-
-    ```json
-    {
-      "name": "filesystem",
-      "transport": "stdio",
-      "description": "Filesystem MCP server",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
-    }
-    ```
+  <Step title="Open Add Server">
+    Open the dashboard at [http://localhost:8080/](http://localhost:8080/) and click **+ Add Server**.
   </Step>
-  <Step title="Register with Mcpjungle">
-    Pass the file to the `register` command with the `-c` flag:
+  <Step title="Fill in the stdio fields">
+    For the official MCP filesystem server:
 
-    ```bash
-    mcpjungle register -c ./filesystem.json
-    ```
+    - **Server name:** `filesystem`
+    - **Transport:** `stdio`
+    - **Command:** `npx`
+    - **Arguments:** `-y` and `@modelcontextprotocol/server-filesystem` and `.` (one argument per line)
 
-    Mcpjungle spawns the process, initializes the connection, loads its tool list, and registers the server.
+    Click **Register**. Mcpjungle spawns the process, initializes the connection, loads its tool list, and registers the server.
   </Step>
 </Steps>
 
-## Config file format
+## Server fields
 
-The full set of fields for a STDIO server config:
+The dashboard form uses the same fields as the HTTP API. The full STDIO payload is:
 
 ```json
 {
@@ -58,7 +49,7 @@ The full set of fields for a STDIO server config:
 | ------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`        | Yes      | Unique identifier. No spaces, special characters, or consecutive underscores.                  |
 | `transport`   | Yes      | Must be `"stdio"`. Other possible values are `"streamable_http"` and `"sse"`.                  |
-| `description` | No       | Human-readable description surfaced in the CLI and API.                                        |
+| `description` | No       | Human-readable description surfaced in the dashboard and API.                                  |
 | `command`     | Yes      | The executable to run — typically `"npx"` or `"uvx"`.                                         |
 | `args`        | No       | List of arguments passed to `command` when Mcpjungle spawns the process.                      |
 | `session_mode`| No       | `stateless` (default) creates a new process/connection per tool call. `stateful` reuses a persistent session. |

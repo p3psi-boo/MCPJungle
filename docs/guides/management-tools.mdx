@@ -3,7 +3,7 @@ title: "Management Tools"
 description: "Let an agent manage mcpjungle itself, such as creating tool groups, disabling tools or installing skills, over MCP."
 ---
 
-Mcpjungle can expose a built-in MCP server named `mcpjungle`. Its tools let an agent connected to the gateway inspect and manage the gateway itself. For example, you can ask your agent to *"create a tool group with only the GitHub tools, without the delete ones"*. The agent creates the group directly, so you don't need the CLI or the dashboard.
+Mcpjungle can expose a built-in MCP server named `mcpjungle`. Its tools let an agent connected to the gateway inspect and manage the gateway itself. For example, you can ask your agent to *"create a tool group with only the GitHub tools, without the delete ones"*. The agent creates the group directly, so you don't need the dashboard.
 
 Management tools are **off by default**.
 
@@ -41,7 +41,7 @@ Clients connected to the main `/mcp` endpoint (and `/sse`) then see the tools be
 Tool groups behave exactly as described in [Tool Groups](/guides/tool-groups). Changes take effect immediately for clients that are already connected. Group endpoints are returned as paths, such as `/v0/groups/dev/mcp`, relative to your gateway URL.
 
 <Note>
-  Registering and deregistering MCP servers is intentionally not available as a tool. Registering a STDIO server runs a command on the gateway host. Use the CLI, the API or the dashboard for that.
+  Registering and deregistering MCP servers is intentionally not available as a tool. Registering a STDIO server runs a command on the gateway host. Use the dashboard or the API for that.
 </Note>
 
 ### Skills
@@ -59,7 +59,7 @@ When [Agent Skills](/guides/agent-skills) are enabled, the management server als
 | `mcpjungle__update_skill` | Reinstalls a skill from the source it was installed from. |
 | `mcpjungle__remove_skill` | Removes a skill installed at runtime. |
 
-`edit_skill` is available whenever skills are enabled. The create, preview, install, update, and remove tools also need an install directory, which is the first `--skills-dir` or the directory set with `--skills-install-dir`. Skills from a `--skills-dir` can't be replaced or removed, but they can be edited in place. The [supported sources](/guides/agent-skills#supported-sources) are the same as for the CLI. Created and installed skills are served right away as `skills__*` tools and prompts.
+`edit_skill` is available whenever skills are enabled. The create, preview, install, update, and remove tools also need an install directory, which is the first `--skills-dir` or the directory set with `--skills-install-dir`. Skills from a `--skills-dir` can't be replaced or removed, but they can be edited in place. The [supported sources](/guides/agent-skills#supported-sources) are the same as on the dashboard. Created and installed skills are served right away as `skills__*` tools and prompts.
 
 <Warning>
   Skills are instructions that other agents follow. An agent that can install skills can change what every client connected to the gateway is told to do. Give management access only to agents you trust with that.
@@ -84,4 +84,4 @@ mcpjungle create mcp-client ops-agent --allow "mcpjungle, github"
 ## Limitations
 
 - While management tools are enabled, the name `mcpjungle` is reserved. Registering a server with that name fails. If a server named `mcpjungle` already exists, the server refuses to start with management tools enabled.
-- Management tools aren't stored in the database. They don't appear in `mcpjungle list tools`, can't be added to tool groups, and can't be enabled or disabled one at a time.
+- Management tools aren't stored in the database. They don't appear on the Tools page, can't be added to tool groups, and can't be enabled or disabled one at a time.

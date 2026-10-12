@@ -61,12 +61,7 @@ func (s *Server) dashboardToolGroupsHandler() gin.HandlerFunc {
 		if len(resp.ToolGroups) == 0 {
 			resp.EmptyState = &types.DashboardEmptyState{
 				Title:       "No tool groups configured yet.",
-				Description: "Create a tool group to expose a focused subset of MCP tools.",
-				Commands: []string{
-					"mcpjungle create group --conf group.json",
-					"mcpjungle list groups",
-					"mcpjungle get group <group-name>",
-				},
+				Description: "Click + Add Tool Group to expose a focused subset of MCP tools on a dedicated endpoint.",
 			}
 		}
 
