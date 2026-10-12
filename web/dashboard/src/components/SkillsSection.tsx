@@ -113,12 +113,14 @@ function SkillWriteFields({
       </label>
       <label className="form-field">
         <span>Description</span>
-        <input
-          className="table-filter form-input"
+        <textarea
+          className="table-filter form-input form-textarea-description"
           onChange={(event) => onChange({ description: event.target.value })}
           placeholder="Review pull requests. Use when asked to look at a diff."
+          rows={4}
           value={form.description}
         />
+        <span className="form-hint">Shown to the agent so it can decide when to load this skill. At most 1024 characters.</span>
       </label>
       <div className="form-grid">
         <label className="form-field">

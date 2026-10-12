@@ -1166,6 +1166,12 @@ button:disabled {
   resize: vertical;
 }
 
+.form-textarea-description {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
 .form-textarea-tall {
   min-height: 240px;
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
