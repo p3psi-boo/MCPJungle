@@ -33,8 +33,8 @@ Use it as a quick product-readiness view:
 
 | Area | Capability | Support level | Notes                                                           |
 |---|---|---|-----------------------------------------------------------------|
-| Upstream HTTP servers | Static bearer-token auth | Stable | Supported via `--bearer-token` or JSON config.                  |
-| Upstream HTTP servers | Custom headers | Stable | Supported through the `headers` field in config files.          |
+| Upstream HTTP servers | Static bearer-token auth | Stable | Supported via the dashboard bearer-token field or JSON config.  |
+| Upstream HTTP servers | Custom headers | Stable | Supported through the dashboard headers fields or JSON config.  |
 | Upstream HTTP servers | OAuth flow | Beta | Supported for registration-time OAuth on HTTP-based upstream MCP servers. Tokens are gateway-scoped and the feature is still maturing. |
 | Mcpjungle gateway | Enterprise-mode client authentication | Stable | MCP clients authenticate with bearer tokens in enterprise mode. |
 | Mcpjungle gateway | Per-client server allow-lists | Stable | Supported through MCP client creation in enterprise mode.       |
@@ -64,8 +64,8 @@ Use it as a quick product-readiness view:
 
 | Area | Capability | Support level | Notes |
 |---|---|---|---|
-| Mcpjungle client | CLI | Stable | Primary management interface for registering servers, managing groups, and operating Mcpjungle today. |
-| Mcpjungle client | Dashboard UI | Beta | Local/dev web UI for inspecting and managing servers, tools, tool groups, prompts, resources, and system info. |
+| Mcpjungle client | Dashboard UI | Beta | Primary management interface in development mode for registering servers, managing tools and groups, and operating skills. |
+| Mcpjungle client | CLI | Stable | Starts the gateway (`mcpjungle start`) and remains available for enterprise bootstrap and HTTP API automation. |
 
 ## Related pages
 

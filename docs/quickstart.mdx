@@ -22,28 +22,17 @@ This exposes mcpjungle's streamable http mcp server at `http://localhost:8080/mc
 
 ## Add an MCP server
 
-1. Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
+Open the dashboard at [http://localhost:8080/](http://localhost:8080/).
 
-```bash
-brew install mcpjungle/mcpjungle/mcpjungle
-```
+1. Click **+ Add Server**.
+2. Set **Server name** to `context7`.
+3. Set **Transport** to `streamable_http`.
+4. Set **URL** to `https://mcp.context7.com/mcp`.
+5. Click **Register**.
 
-2. Add the context7 MCP server to mcpjungle using the CLI:
+The server appears on the Servers page. Open **Tools** to confirm `context7__get-library-docs` was discovered.
 
-```bash
-mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-```
-
-You should see output similar to this:
-
-<p align="center">
-  <img src="/images/register-context7.png" alt="register context7 in mcpjungle" />
-</p>
-
-<Note>
-  MCPJungle also includes a Dashboard UI at `http://localhost:8080/`.
-  The dashboard is currently in Beta.
-</Note>
+![MCPJungle dashboard UI](/images/dashboard-ui.png)
 
 ## Connect to mcpjungle
 

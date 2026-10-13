@@ -52,8 +52,8 @@ const (
 	// separator (':' on Unix, ';' on Windows). Skills are disabled when it is empty.
 	SkillsDirEnvVar = "MCPJUNGLE_SKILLS_DIR"
 
-	// SkillsInstallDirEnvVar is the directory that skills installed at runtime (from the dashboard,
-	// API or CLI) are written to. Defaults to the first skills directory.
+	// SkillsInstallDirEnvVar is the directory that skills installed at runtime (from the dashboard
+	// or API) are written to. Defaults to the first skills directory.
 	SkillsInstallDirEnvVar = "MCPJUNGLE_SKILLS_INSTALL_DIR"
 
 	DBUrlEnvVar            = "DATABASE_URL"

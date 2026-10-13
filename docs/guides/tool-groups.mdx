@@ -36,9 +36,11 @@ Mcpjungle also creates SSE endpoints for the group:
   If a tool included in a group is later disabled globally or deregistered, it becomes unavailable through the group endpoint automatically. Re-enabling or re-registering the tool makes it available again without any changes to the group configuration.
 </Note>
 
-## Configuration file format
+## Configuration
 
-You define a group in a JSON file and pass it to the `create group` command. Three fields control which tools are included:
+On the dashboard, open **Tool Groups** and click **+ Add Tool Group**. Give the group a name, pick the tools to include, and save. The group gets a dedicated MCP endpoint immediately.
+
+The HTTP API accepts the same fields. Three of them control which tools are included:
 
 | Field | Type | Description |
 |---|---|---|
@@ -73,7 +75,7 @@ You define a group in a JSON file and pass it to the `create group` command. Thr
     This group exposes exactly three tools regardless of how many tools are registered in Mcpjungle.
 
     <Tip>
-      Run `mcpjungle list tools` to see all available tool names before building your group configuration.
+      Open the **Tools** page in the dashboard to see all available tool names before building a group.
     </Tip>
   </Tab>
   <Tab title="Include entire servers">
@@ -109,25 +111,18 @@ You define a group in a JSON file and pass it to the `create group` command. Thr
 
 ## Creating a group
 
-Pass the configuration file to the `create group` command using the `-c` flag:
+1. Open the dashboard and go to **Tool Groups**.
+2. Click **+ Add Tool Group**.
+3. Enter a name and description, then select the tools to include.
+4. Click **+ Add Tool Group** to save.
 
-```bash
-mcpjungle create group -c ./claude-tools-group.json
+The group row shows its streamable HTTP endpoint, for example:
+
+```
+http://127.0.0.1:8080/v0/groups/claude-tools/mcp
 ```
 
-Mcpjungle confirms the group was created and prints its endpoint:
-
-```
-Tool Group claude-tools created successfully
-It is now accessible at the following streamable http endpoint:
-
-    http://127.0.0.1:8080/v0/groups/claude-tools/mcp
-
-SSE endpoints are also available:
-
-    http://127.0.0.1:8080/v0/groups/claude-tools/sse
-    http://127.0.0.1:8080/v0/groups/claude-tools/message
-```
+SSE endpoints are also available at `/v0/groups/{group-name}/sse` and `/v0/groups/{group-name}/message`.
 
 Configure your MCP client to connect to that URL instead of `http://127.0.0.1:8080/mcp`. The client will only see the tools in the group.
 
@@ -137,21 +132,13 @@ This is the recommended pattern whenever a single client should use a curated to
 
 <Steps>
   <Step title="List all groups">
-    ```bash
-    mcpjungle list groups
-    ```
+    Open **Tool Groups** in the dashboard. Each row shows the group name, tool count, and description.
   </Step>
   <Step title="Inspect a specific group">
-    ```bash
-    mcpjungle get group claude-tools
-    ```
-
-    This shows the group's description, its MCP endpoint URLs, and the lists of included tools, included servers, and excluded tools.
+    Expand a group row to see its MCP endpoint URLs and the tools it includes.
   </Step>
   <Step title="Delete a group">
-    ```bash
-    mcpjungle delete group claude-tools
-    ```
+    Use the delete action on the group row.
 
     Deleting a group removes its endpoint. Make sure no MCP clients are connected to that endpoint before you delete it. The tools themselves are not deleted — only the group configuration.
   </Step>
@@ -159,17 +146,7 @@ This is the recommended pattern whenever a single client should use a curated to
 
 ## Working with tools inside a group
 
-Use the `--group` flag on `list tools` and `invoke` to scope operations to a specific group:
-
-```bash
-# List tools visible in the group
-mcpjungle list tools --group claude-tools
-
-# Invoke a tool through the group context
-mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "README.md"}'
-```
-
-These commands are useful for verifying that a group is configured correctly before pointing a client at it.
+Expand a group in the dashboard to confirm which tools it exposes before pointing a client at the group endpoint. Then connect the client to `/v0/groups/{group-name}/mcp` and ask it to list or call those tools.
 
 ## Known limitations
 

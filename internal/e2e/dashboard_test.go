@@ -55,6 +55,7 @@ func TestDashboardAPIEmptyStates(t *testing.T) {
 	decodeJSON(t, overviewResp, &overview)
 	require.Equal(t, float64(0), overview["server_count"])
 	require.NotNil(t, overview["empty_state"])
+	assertDashboardEmptyStateHasNoCLICommands(t, overview["empty_state"])
 
 	serversResp := env.do(t, http.MethodGet, "/api/dashboard/servers", nil, "")
 	defer drain(serversResp)
@@ -64,6 +65,44 @@ func TestDashboardAPIEmptyStates(t *testing.T) {
 	decodeJSON(t, serversResp, &servers)
 	require.Empty(t, servers["servers"])
 	require.NotNil(t, servers["empty_state"])
+	assertDashboardEmptyStateHasNoCLICommands(t, servers["empty_state"])
+
+	for _, path := range []string{
+		"/api/dashboard/tools",
+		"/api/dashboard/tool-groups",
+		"/api/dashboard/prompts",
+		"/api/dashboard/resources",
+	} {
+		resp := env.do(t, http.MethodGet, path, nil, "")
+		require.Equal(t, http.StatusOK, resp.StatusCode, path)
+		var payload map[string]any
+		decodeJSON(t, resp, &payload)
+		drain(resp)
+		require.NotNil(t, payload["empty_state"], path)
+		assertDashboardEmptyStateHasNoCLICommands(t, payload["empty_state"])
+	}
+}
+
+func assertDashboardEmptyStateHasNoCLICommands(t *testing.T, raw any) {
+	t.Helper()
+	empty, ok := raw.(map[string]any)
+	require.True(t, ok)
+	commands, exists := empty["commands"]
+	if !exists || commands == nil {
+		return
+	}
+	list, ok := commands.([]any)
+	require.True(t, ok)
+	for _, command := range list {
+		text, _ := command.(string)
+		require.NotContains(t, text, "mcpjungle register")
+		require.NotContains(t, text, "mcpjungle list")
+		require.NotContains(t, text, "mcpjungle create")
+		require.NotContains(t, text, "mcpjungle skills")
+		require.NotContains(t, text, "mcpjungle invoke")
+		require.NotContains(t, text, "mcpjungle get ")
+		require.NotContains(t, text, "mcpjungle usage")
+	}
 }
 
 func TestDashboardAPIValidJSON(t *testing.T) {

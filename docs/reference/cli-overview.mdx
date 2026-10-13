@@ -3,9 +3,9 @@ title: "CLI command reference"
 description: "Information about how to use the mcpjungle CLI"
 ---
 
-The `mcpjungle` binary serves two roles: it runs the gateway server and acts as a client for managing everything in that server.
+The `mcpjungle` binary starts the gateway server. In development mode, manage registered servers, tools, groups, and skills from the [dashboard](/guides/dashboard) at `/`.
 
-Every subcommand talks to the registry over HTTP, so you can run the CLI on any machine that can reach the server — your laptop, a CI runner, or inside the same container.
+This reference documents the remaining server-lifecycle commands (`start`, `init-server`, `version`) and HTTP-oriented flags. Every client subcommand talks to the registry over HTTP.
 
 ## Global flags
 

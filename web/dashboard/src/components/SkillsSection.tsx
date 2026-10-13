@@ -498,11 +498,8 @@ export function SkillsSection({ onFeedback }: { onFeedback: (feedback: SkillsFee
           <EmptyStateCard
             emptyState={{
               title: "No skills yet",
-              description: "Create a skill from scratch, or install one from a GitHub repository.",
-              commands: [
-                "mcpjungle skills create code-review --description \"Review pull requests\"",
-                "mcpjungle skills add anthropics/skills --skill pdf",
-              ],
+              description:
+                "Click + Add Skill to create one from scratch, or install skills from a GitHub repository.",
             }}
           />
         ) : (

@@ -37,11 +37,7 @@ The repository ships 2 docker compose files:
 </Steps>
 
 <Note>
-If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead when registering MCP servers that run on your host machine:
-
-```bash
-mcpjungle register --name calculator --url http://host.docker.internal:5000/mcp
-```
+If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead when registering MCP servers that run on your host machine, for example URL `http://host.docker.internal:5000/mcp` in **+ Add Server**.
 </Note>
 
 <Note>
@@ -118,25 +114,6 @@ docker compose down
 
 For a single container, `docker stop` is sufficient because it sends `SIGTERM` by default.
 
-## Run CLI commands inside a container
+## Open the dashboard
 
-The standard image does not include a shell. Use `docker exec` or `kubectl exec` to invoke the `mcpjungle` binary directly:
-
-<Tabs>
-  <Tab title="Docker">
-    ```bash
-    docker exec -it <container_name> /mcpjungle
-    ```
-  </Tab>
-  <Tab title="Kubernetes">
-    ```bash
-    kubectl -n <namespace> exec -it po/<pod_name> -- /mcpjungle
-    ```
-  </Tab>
-</Tabs>
-
-For example, to list registered MCP servers from inside a running container:
-
-```bash
-docker exec -it mcpjungle-server /mcpjungle list servers
-```
+After Compose is up, manage the gateway from the dashboard at [http://localhost:8080/](http://localhost:8080/). Register servers, tool groups, and skills there instead of running management commands inside the container.
