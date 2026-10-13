@@ -20,6 +20,13 @@ import (
 // this name (or `*`) in its allow list to see and use them.
 const SkillsServerName = "skills"
 
+// ErrSkillsServerConflict is returned when a user-registered MCP server already uses
+// the reserved skills server name.
+var ErrSkillsServerConflict = fmt.Errorf(
+	"an MCP server named %q is already registered, which conflicts with the built-in skills server",
+	SkillsServerName,
+)
+
 const (
 	skillsListToolName     = "list_skills"
 	skillsGetToolName      = "get_skill"
@@ -50,9 +57,8 @@ func (m *MCPService) RegisterSkills(store *skills.Store) error {
 	err := m.db.Where("name = ?", SkillsServerName).First(&existing).Error
 	if err == nil {
 		return fmt.Errorf(
-			"an MCP server named %q is already registered, which conflicts with the built-in skills server;"+
-				" deregister it or disable skills",
-			SkillsServerName,
+			"%w; deregister it or start with --skills-install-dir none",
+			ErrSkillsServerConflict,
 		)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {

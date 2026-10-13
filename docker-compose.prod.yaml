@@ -39,14 +39,17 @@ services:
       SERVER_MODE: ${SERVER_MODE:-enterprise}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       MCP_SERVER_INIT_REQ_TIMEOUT_SEC: ${MCP_SERVER_INIT_REQ_TIMEOUT_SEC:-10}
+      MCPJUNGLE_SKILLS_INSTALL_DIR: ${MCPJUNGLE_SKILLS_INSTALL_DIR:-/skills}
     ports:
      - "${HOST_PORT:-8080}:8080"
-    # volumes:
+    volumes:
+      # Persist skills created or installed from the dashboard
+      - skills_data:/skills
       # Uncomment the following lines ONLY if you need filesystem MCP server access
       # WARNING: This mounts the host filesystem and should only be used for personal/development use
       # Production deployments should avoid mounting host filesystem for security reasons
       # - /:/host:ro
-      # 
+      #
       # Alternative: Mount specific directories for better security
       # - ${HOME}:/host/home:ro
       # - /tmp:/host/tmp:rw
@@ -88,4 +91,5 @@ configs:
 
 volumes:
   db_data:
+  skills_data:
   prometheus_data:

@@ -48,13 +48,22 @@ const (
 	// its tools can act on the upstreams it proxies.
 	BindHostEnvVar = "MCPJUNGLE_BIND_HOST"
 
-	// SkillsDirEnvVar lists directories to load Agent Skills from, separated by the OS path list
-	// separator (':' on Unix, ';' on Windows). Skills are disabled when it is empty.
+	// SkillsDirEnvVar lists extra directories to load Agent Skills from, separated by the OS path
+	// list separator (':' on Unix, ';' on Windows).
 	SkillsDirEnvVar = "MCPJUNGLE_SKILLS_DIR"
 
 	// SkillsInstallDirEnvVar is the directory that skills installed at runtime (from the dashboard
-	// or API) are written to. Defaults to the first skills directory.
+	// or API) are written to. Defaults to the first skills directory, or DefaultSkillsInstallDir.
+	// The value "none" disables skills unless --skills-dir is also set.
 	SkillsInstallDirEnvVar = "MCPJUNGLE_SKILLS_INSTALL_DIR"
+
+	// DefaultSkillsInstallDir is used when neither --skills-install-dir / MCPJUNGLE_SKILLS_INSTALL_DIR
+	// nor --skills-dir is set, so the dashboard always has an Add Skill entry.
+	DefaultSkillsInstallDir = "skills"
+
+	// skillsInstallDirNone disables the default install directory. Skills stay off unless
+	// --skills-dir (or MCPJUNGLE_SKILLS_DIR) is also set.
+	skillsInstallDirNone = "none"
 
 	DBUrlEnvVar            = "DATABASE_URL"
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
@@ -166,9 +175,11 @@ func init() {
 		"skills-install-dir",
 		"",
 		fmt.Sprintf(
-			"directory that skills installed at runtime are written to; enables skills on its own"+
-				" and defaults to the first --skills-dir (overrides env var %s)",
+			"directory that skills installed at runtime are written to; defaults to the first --skills-dir"+
+				" or %s (overrides env var %s). Use %s to disable skills when no --skills-dir is set",
+			DefaultSkillsInstallDir,
 			SkillsInstallDirEnvVar,
+			skillsInstallDirNone,
 		),
 	)
 	startServerCmd.Flags().BoolVar(
@@ -345,8 +356,8 @@ func getSQLiteDBPathOverride() string {
 	return strings.TrimSpace(os.Getenv(SQLiteDBPathEnvVar))
 }
 
-// getSkillsDirs returns the directories to load Agent Skills from.
-// precedence: command line flag > environment variable > none (skills disabled)
+// getSkillsDirs returns extra directories to load Agent Skills from.
+// precedence: command line flag > environment variable > none
 func getSkillsDirs() []string {
 	dirs := startServerCmdSkillsDirs
 	if len(dirs) == 0 {
@@ -362,18 +373,29 @@ func getSkillsDirs() []string {
 }
 
 // getSkillsInstallDir returns the directory runtime skill installs are written to.
-// precedence: command line flag > environment variable > first skills directory
+// precedence: command line flag > environment variable > first skills directory > DefaultSkillsInstallDir
+// The value "none" skips the default so skills stay disabled unless a --skills-dir is set.
 func getSkillsInstallDir(skillsDirs []string) string {
 	if dir := strings.TrimSpace(startServerCmdSkillsInstallDir); dir != "" {
-		return dir
+		return resolveSkillsInstallDir(dir, skillsDirs)
 	}
 	if dir := strings.TrimSpace(os.Getenv(SkillsInstallDirEnvVar)); dir != "" {
-		return dir
+		return resolveSkillsInstallDir(dir, skillsDirs)
 	}
 	if len(skillsDirs) > 0 {
 		return skillsDirs[0]
 	}
-	return ""
+	return DefaultSkillsInstallDir
+}
+
+func resolveSkillsInstallDir(dir string, skillsDirs []string) string {
+	if strings.EqualFold(dir, skillsInstallDirNone) {
+		if len(skillsDirs) > 0 {
+			return skillsDirs[0]
+		}
+		return ""
+	}
+	return dir
 }
 
 // getEnvOrFile returns the value of the given environment variable.
@@ -597,12 +619,17 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to load skills: %v", err)
 		}
 		if err := mcpService.RegisterSkills(skillStore); err != nil {
-			return fmt.Errorf("failed to register skills: %v", err)
+			if errors.Is(err, mcp.ErrSkillsServerConflict) {
+				log.Printf("[server] skills not enabled: %v\n", err)
+			} else {
+				return fmt.Errorf("failed to register skills: %v", err)
+			}
+		} else {
+			log.Printf(
+				"[server] loaded %d skill(s); skills installed at runtime are written to %s\n",
+				len(skillStore.List()), skillStore.InstallDir(),
+			)
 		}
-		log.Printf(
-			"[server] loaded %d skill(s); skills installed at runtime are written to %s\n",
-			len(skillStore.List()), skillStore.InstallDir(),
-		)
 	}
 
 	mcpClientService := mcpclient.NewMCPClientService(dbConn)
