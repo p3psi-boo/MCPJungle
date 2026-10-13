@@ -251,7 +251,7 @@ func TestToolGroupLifecycle(t *testing.T) {
 	testhelpers.AssertStringContains(
 		t,
 		f.call(t, ctx, createToolGroupToolName, map[string]any{"name": "empty", "included_tools": []string{}}, nil),
-		"at least one tool",
+		"at least one tool, prompt, resource, or skill",
 	)
 
 	// a partial update keeps the fields that are not passed

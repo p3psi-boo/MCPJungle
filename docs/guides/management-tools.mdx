@@ -34,11 +34,11 @@ Clients connected to the main `/mcp` endpoint (and `/sse`) then see the tools be
 | `mcpjungle__set_tools_enabled` | Enables or disables tools. Each name can be a tool name or a server name. A server name applies to all of that server's tools. |
 | `mcpjungle__list_tool_groups` | Lists tool groups with their configuration and endpoints. |
 | `mcpjungle__get_tool_group` | Returns a group's configuration, endpoints and effective tools. |
-| `mcpjungle__create_tool_group` | Creates a tool group from `included_tools`, `included_servers` and `excluded_tools`. |
+| `mcpjungle__create_tool_group` | Creates a group from per-item lists: `included_tools`, `included_prompts`, `included_resources`, `included_skills`, plus optional `included_servers` / `excluded_tools`. |
 | `mcpjungle__update_tool_group` | Updates a tool group. Only the fields you pass change. Each list you pass replaces the current list. |
 | `mcpjungle__delete_tool_group` | Deletes a tool group. |
 
-Tool groups behave exactly as described in [Tool Groups](/guides/tool-groups). Changes take effect immediately for clients that are already connected. Group endpoints are returned as paths, such as `/v0/groups/dev/mcp`, relative to your gateway URL.
+Groups behave exactly as described in [Groups](/guides/tool-groups). Changes take effect immediately for clients that are already connected. Group endpoints are returned as paths, such as `/v0/groups/dev/mcp`, relative to your gateway URL.
 
 <Note>
   Registering and deregistering MCP servers is intentionally not available as a tool. Registering a STDIO server runs a command on the gateway host. Use the dashboard or the API for that.

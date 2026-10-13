@@ -14,7 +14,10 @@ import type {
   DashboardResourcesResponse,
   DashboardServer,
   DashboardServersResponse,
+  DashboardSkill,
+  DashboardSkillsResponse,
   DashboardToolGroup,
+  DashboardToolGroupItem,
   DashboardToolGroupsResponse,
   DashboardTool,
   DashboardToolsResponse,
@@ -52,6 +55,7 @@ interface DashboardData {
   toolGroups?: DashboardToolGroupsResponse;
   prompts?: DashboardPromptsResponse;
   resources?: DashboardResourcesResponse;
+  skills?: DashboardSkillsResponse;
   diagnostics?: DashboardDiagnosticsResponse;
 }
 
@@ -84,10 +88,15 @@ interface RegisterOAuthState {
   error: string;
 }
 
+type GroupPickerKind = "tools" | "prompts" | "resources" | "skills";
+
 interface ToolGroupFormState {
   name: string;
   description: string;
   selectedTools: string[];
+  selectedPrompts: string[];
+  selectedResources: string[];
+  selectedSkills: string[];
 }
 
 interface SchemaFieldSummary {
@@ -110,7 +119,7 @@ const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
     subtitle: "All discovered tools across registered servers.",
   },
   tool_groups: {
-    title: "Tool Groups",
+    title: "Groups",
     subtitle: "",
   },
   prompts: {
@@ -435,7 +444,61 @@ function createInitialToolGroupForm(): ToolGroupFormState {
     name: "",
     description: "",
     selectedTools: [],
+    selectedPrompts: [],
+    selectedResources: [],
+    selectedSkills: [],
   };
+}
+
+function groupSelectionCount(form: ToolGroupFormState) {
+  return (
+    form.selectedTools.length +
+    form.selectedPrompts.length +
+    form.selectedResources.length +
+    form.selectedSkills.length
+  );
+}
+
+function GroupIncludedSection({
+  kind,
+  items,
+  empty,
+}: {
+  kind: string;
+  items: DashboardToolGroupItem[];
+  empty: string;
+}) {
+  return (
+    <div className="tool-schema-section">
+      <div className="tool-schema-header">
+        <h4>Included {kind.toLowerCase()}</h4>
+      </div>
+      {items.length > 0 ? (
+        <div className="schema-field-list">
+          {items.map((item) => (
+            <article className="schema-field-card" key={`${kind}:${item.canonical_name}`}>
+              <div className="schema-field-head">
+                <code>{item.canonical_name}</code>
+                <span className="schema-type-pill">
+                  <code>{item.server}</code>
+                </span>
+              </div>
+              <dl className="schema-field-meta">
+                {item.description ? (
+                  <div>
+                    <dt>Description</dt>
+                    <dd>{item.description}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-inline">{empty}</p>
+      )}
+    </div>
+  );
 }
 
 export default function App() {
@@ -450,6 +513,12 @@ export default function App() {
   const [promptFilter, setPromptFilter] = useState("");
   const [toolGroupToolFilter, setToolGroupToolFilter] = useState("");
   const [toolGroupToolServerFilter, setToolGroupToolServerFilter] = useState("all");
+  const [toolGroupPromptFilter, setToolGroupPromptFilter] = useState("");
+  const [toolGroupPromptServerFilter, setToolGroupPromptServerFilter] = useState("all");
+  const [toolGroupResourceFilter, setToolGroupResourceFilter] = useState("");
+  const [toolGroupResourceServerFilter, setToolGroupResourceServerFilter] = useState("all");
+  const [toolGroupSkillFilter, setToolGroupSkillFilter] = useState("");
+  const [groupPickerKind, setGroupPickerKind] = useState<GroupPickerKind>("tools");
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [expandedToolGroup, setExpandedToolGroup] = useState<string | null>(null);
@@ -469,16 +538,17 @@ export default function App() {
     }
     setErrorMessage("");
     try {
-      const [overview, servers, tools, toolGroups, prompts, resources, diagnostics] = await Promise.all([
+      const [overview, servers, tools, toolGroups, prompts, resources, skills, diagnostics] = await Promise.all([
         api.overview(),
         api.servers(),
         api.tools(),
         api.toolGroups(),
         api.prompts(),
         api.resources(),
+        api.skills().catch(() => ({ enabled: false, can_install: false, skills: [] }) as DashboardSkillsResponse),
         api.diagnostics(),
       ]);
-      setData({ overview, servers, tools, toolGroups, prompts, resources, diagnostics });
+      setData({ overview, servers, tools, toolGroups, prompts, resources, skills, diagnostics });
       setExpandedTool((current) =>
         current && tools.tools.some((tool) => tool.canonical_name === current) ? current : null,
       );
@@ -533,12 +603,16 @@ export default function App() {
   }, [data.tools?.tools, toolFilter, toolServerFilter]);
 
   const uniqueToolServers = useMemo(() => {
-    const servers = new Set((data.tools?.tools ?? []).map((tool) => tool.server));
+    const servers = new Set(
+      (data.tools?.tools ?? [])
+        .filter((tool) => tool.enabled && tool.server_enabled)
+        .map((tool) => tool.server),
+    );
     return Array.from(servers).sort();
   }, [data.tools?.tools]);
 
   const availableToolGroupTools = useMemo(() => {
-    let tools = data.tools?.tools ?? [];
+    let tools = (data.tools?.tools ?? []).filter((tool) => tool.enabled && tool.server_enabled);
     if (toolGroupToolServerFilter !== "all") {
       tools = tools.filter((tool) => tool.server === toolGroupToolServerFilter);
     }
@@ -554,6 +628,75 @@ export default function App() {
         toolDescription(tool).toLowerCase().includes(term),
     );
   }, [data.tools?.tools, toolGroupToolFilter, toolGroupToolServerFilter]);
+
+  const uniquePromptServers = useMemo(() => {
+    const servers = new Set(
+      (data.prompts?.prompts ?? [])
+        .filter((prompt) => prompt.enabled && prompt.server_enabled)
+        .map((prompt) => prompt.server),
+    );
+    return Array.from(servers).sort();
+  }, [data.prompts?.prompts]);
+
+  const uniqueResourceServers = useMemo(() => {
+    const servers = new Set(
+      (data.resources?.resources ?? [])
+        .filter((resource) => resource.enabled)
+        .map((resource) => resource.server),
+    );
+    return Array.from(servers).sort();
+  }, [data.resources?.resources]);
+
+  const availableToolGroupPrompts = useMemo(() => {
+    let prompts = (data.prompts?.prompts ?? []).filter(
+      (prompt) => prompt.enabled && prompt.server_enabled,
+    );
+    if (toolGroupPromptServerFilter !== "all") {
+      prompts = prompts.filter((prompt) => prompt.server === toolGroupPromptServerFilter);
+    }
+    if (!toolGroupPromptFilter.trim()) {
+      return prompts;
+    }
+    const term = toolGroupPromptFilter.toLowerCase();
+    return prompts.filter(
+      (prompt) =>
+        prompt.name.toLowerCase().includes(term) ||
+        prompt.canonical_name.toLowerCase().includes(term) ||
+        prompt.server.toLowerCase().includes(term) ||
+        promptDescription(prompt).toLowerCase().includes(term),
+    );
+  }, [data.prompts?.prompts, toolGroupPromptFilter, toolGroupPromptServerFilter]);
+
+  const availableToolGroupResources = useMemo(() => {
+    let resources = (data.resources?.resources ?? []).filter((resource) => resource.enabled);
+    if (toolGroupResourceServerFilter !== "all") {
+      resources = resources.filter((resource) => resource.server === toolGroupResourceServerFilter);
+    }
+    if (!toolGroupResourceFilter.trim()) {
+      return resources;
+    }
+    const term = toolGroupResourceFilter.toLowerCase();
+    return resources.filter(
+      (resource) =>
+        resource.name.toLowerCase().includes(term) ||
+        resource.uri.toLowerCase().includes(term) ||
+        resource.server.toLowerCase().includes(term) ||
+        resourceDescription(resource).toLowerCase().includes(term),
+    );
+  }, [data.resources?.resources, toolGroupResourceFilter, toolGroupResourceServerFilter]);
+
+  const availableToolGroupSkills = useMemo(() => {
+    const skills = data.skills?.skills ?? [];
+    if (!toolGroupSkillFilter.trim()) {
+      return skills;
+    }
+    const term = toolGroupSkillFilter.toLowerCase();
+    return skills.filter(
+      (skill) =>
+        skill.name.toLowerCase().includes(term) ||
+        skill.description.toLowerCase().includes(term),
+    );
+  }, [data.skills?.skills, toolGroupSkillFilter]);
 
   const filteredPrompts = useMemo(() => {
     const prompts = data.prompts?.prompts ?? [];
@@ -659,6 +802,12 @@ export default function App() {
     setToolGroupError("");
     setToolGroupToolFilter("");
     setToolGroupToolServerFilter("all");
+    setToolGroupPromptFilter("");
+    setToolGroupPromptServerFilter("all");
+    setToolGroupResourceFilter("");
+    setToolGroupResourceServerFilter("all");
+    setToolGroupSkillFilter("");
+    setGroupPickerKind("tools");
     setToolGroupOpen(true);
   }
 
@@ -668,20 +817,39 @@ export default function App() {
     setToolGroupError("");
   }
 
-  function toggleToolGroupSelection(canonicalName: string) {
-    setToolGroupForm((current) => ({
-      ...current,
-      selectedTools: current.selectedTools.includes(canonicalName)
-        ? current.selectedTools.filter((name) => name !== canonicalName)
-        : [...current.selectedTools, canonicalName],
-    }));
+  function toggleGroupSelection(kind: GroupPickerKind, id: string) {
+    setToolGroupForm((current) => {
+      const key =
+        kind === "tools"
+          ? "selectedTools"
+          : kind === "prompts"
+            ? "selectedPrompts"
+            : kind === "resources"
+              ? "selectedResources"
+              : "selectedSkills";
+      const selected = current[key];
+      return {
+        ...current,
+        [key]: selected.includes(id) ? selected.filter((name) => name !== id) : [...selected, id],
+      };
+    });
   }
 
-  function removeToolGroupSelection(canonicalName: string) {
-    setToolGroupForm((current) => ({
-      ...current,
-      selectedTools: current.selectedTools.filter((name) => name !== canonicalName),
-    }));
+  function removeGroupSelection(kind: GroupPickerKind, id: string) {
+    setToolGroupForm((current) => {
+      const key =
+        kind === "tools"
+          ? "selectedTools"
+          : kind === "prompts"
+            ? "selectedPrompts"
+            : kind === "resources"
+              ? "selectedResources"
+              : "selectedSkills";
+      return {
+        ...current,
+        [key]: current[key].filter((name) => name !== id),
+      };
+    });
   }
 
   async function submitRegisterServer() {
@@ -858,12 +1026,12 @@ export default function App() {
       setToolGroupError("Group name is required.");
       return;
     }
-    if (toolGroupForm.selectedTools.length === 0) {
-      setToolGroupError("Select at least one tool.");
+    if (groupSelectionCount(toolGroupForm) === 0) {
+      setToolGroupError("Select at least one tool, prompt, resource, or skill.");
       return;
     }
     if ((data.toolGroups?.tool_groups ?? []).some((group) => group.name === name)) {
-      setToolGroupError("A tool group with that name already exists.");
+      setToolGroupError("A group with that name already exists.");
       return;
     }
 
@@ -875,10 +1043,13 @@ export default function App() {
         name,
         description: toolGroupForm.description.trim(),
         tools: toolGroupForm.selectedTools,
+        prompts: toolGroupForm.selectedPrompts,
+        resources: toolGroupForm.selectedResources,
+        skills: toolGroupForm.selectedSkills,
       };
       await api.createToolGroup(payload);
       await loadDashboardData(true);
-      setFeedback({ tone: "success", message: `Tool group ${name} created.` });
+      setFeedback({ tone: "success", message: `Group ${name} created.` });
       closeToolGroupModal();
       setSection("tool_groups");
     } catch (error) {
@@ -891,7 +1062,7 @@ export default function App() {
   }
 
   async function deleteToolGroup(group: DashboardToolGroup) {
-    const confirmed = window.confirm(`Delete tool group "${group.name}"?`);
+    const confirmed = window.confirm(`Delete group "${group.name}"?`);
     if (!confirmed) {
       return;
     }
@@ -1335,11 +1506,11 @@ export default function App() {
 
             {section === "tool_groups" && data.toolGroups ? (
               <SectionCard
-                title="Configured tool groups"
+                title="Configured groups"
                 subtitle=""
                 action={
                   <button className="primary-action" onClick={openToolGroupModal} type="button">
-                    + Add Tool Group
+                    + Add Group
                   </button>
                 }
               >
@@ -1352,7 +1523,7 @@ export default function App() {
                         <tr>
                           <th aria-hidden="true" className="expand-column"></th>
                           <th>Group</th>
-                          <th>Tools</th>
+                          <th>Items</th>
                           <th>Description</th>
                           <th>Actions</th>
                         </tr>
@@ -1374,7 +1545,12 @@ export default function App() {
                                   <div className="table-primary">{group.name}</div>
                                 </td>
                                 <td>
-                                  <strong>{group.tool_count}</strong>
+                                  <div className="group-count-stack">
+                                    <strong>{group.tool_count}</strong> tools
+                                    <span>{group.prompt_count} prompts</span>
+                                    <span>{group.resource_count} resources</span>
+                                    <span>{group.skill_count} skills</span>
+                                  </div>
                                 </td>
                                 <td>
                                   <div className="clamped-description" title={group.description || "No description"}>
@@ -1384,11 +1560,11 @@ export default function App() {
                                 <td>
                                   <div className="row-actions" onClick={(event) => event.stopPropagation()}>
                                     <button
-                                      aria-label="Delete tool group"
+                                      aria-label="Delete group"
                                       className="danger-action icon-button danger-icon-button"
                                       disabled={isBusy(`tool-group-delete:${group.name}`)}
                                       onClick={() => void deleteToolGroup(group)}
-                                      title="Delete tool group"
+                                      title="Delete group"
                                       type="button"
                                     >
                                       <TrashIcon />
@@ -1401,7 +1577,7 @@ export default function App() {
                                   <td className="tool-expanded-cell" colSpan={5}>
                                     <div className="tool-detail-panel">
                                       <div className="tool-detail-header">
-                                        <p className="panel-label">Tool group details</p>
+                                        <p className="panel-label">Group details</p>
                                       </div>
                                       {group.description ? (
                                         <dl className="tool-detail-meta">
@@ -1457,35 +1633,10 @@ export default function App() {
                                         </div>
                                       </div>
 
-                                      <div className="tool-schema-section">
-                                        <div className="tool-schema-header">
-                                          <h4>Included tools</h4>
-                                        </div>
-                                        {group.tools.length > 0 ? (
-                                          <div className="schema-field-list">
-                                            {group.tools.map((tool) => (
-                                              <article className="schema-field-card" key={tool.canonical_name}>
-                                                <div className="schema-field-head">
-                                                  <code>{tool.canonical_name}</code>
-                                                  <span className="schema-type-pill">
-                                                    <code>{tool.server}</code>
-                                                  </span>
-                                                </div>
-                                                <dl className="schema-field-meta">
-                                                  {tool.description ? (
-                                                    <div>
-                                                      <dt>Description</dt>
-                                                      <dd>{tool.description}</dd>
-                                                    </div>
-                                                  ) : null}
-                                                </dl>
-                                              </article>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <p className="empty-inline">No tools in this group.</p>
-                                        )}
-                                      </div>
+                                      <GroupIncludedSection kind="Tools" items={group.tools} empty="No tools in this group." />
+                                      <GroupIncludedSection kind="Prompts" items={group.prompts} empty="No prompts in this group." />
+                                      <GroupIncludedSection kind="Resources" items={group.resources} empty="No resources in this group." />
+                                      <GroupIncludedSection kind="Skills" items={group.skills} empty="No skills in this group." />
                                     </div>
                                   </td>
                                 </tr>
@@ -1790,11 +1941,11 @@ export default function App() {
 
         {toolGroupOpen ? (
           <div className="modal-backdrop" onClick={closeToolGroupModal} role="presentation">
-            <section className="modal-panel" onClick={(event) => event.stopPropagation()}>
+            <section className="modal-panel modal-panel-wide" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <div>
-                  <p className="panel-label">Tool Groups</p>
-                  <h2>Add Tool Group</h2>
+                  <p className="panel-label">Groups</p>
+                  <h2>Add Group</h2>
                 </div>
                 <button className="secondary-action" onClick={closeToolGroupModal} type="button">
                   Close
@@ -1819,83 +1970,297 @@ export default function App() {
                     onChange={(event) =>
                       setToolGroupForm((current) => ({ ...current, description: event.target.value }))
                     }
-                    placeholder="Tools useful for coding workflows"
+                    placeholder="Capabilities useful for coding workflows"
                     value={toolGroupForm.description}
                   />
                 </label>
 
+                <div className="kind-tabs" role="tablist" aria-label="Group item type">
+                  {(
+                    [
+                      ["tools", "Tools", toolGroupForm.selectedTools.length],
+                      ["prompts", "Prompts", toolGroupForm.selectedPrompts.length],
+                      ["resources", "Resources", toolGroupForm.selectedResources.length],
+                      ["skills", "Skills", toolGroupForm.selectedSkills.length],
+                    ] as Array<[GroupPickerKind, string, number]>
+                  ).map(([kind, label, count]) => (
+                    <button
+                      className={`kind-tab ${groupPickerKind === kind ? "is-active" : ""}`}
+                      key={kind}
+                      onClick={() => setGroupPickerKind(kind)}
+                      type="button"
+                    >
+                      {label}
+                      {count > 0 ? <span className="kind-tab-count">{count}</span> : null}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="tool-group-builder">
                   <div className="tool-group-selector panel">
-                    <div className="tool-group-selector-header">
-                      <strong>Available tools</strong>
-                    </div>
-                    {(data.tools?.tools.length ?? 0) > 0 ? (
+                    {groupPickerKind === "tools" ? (
                       <>
-                        <div className="toolbar-cluster">
-                          <input
-                            className="table-filter compact-filter"
-                            onChange={(event) => setToolGroupToolFilter(event.target.value)}
-                            placeholder="Search tools"
-                            value={toolGroupToolFilter}
-                          />
-                          <select
-                            className="table-filter compact-filter compact-select"
-                            onChange={(event) => setToolGroupToolServerFilter(event.target.value)}
-                            value={toolGroupToolServerFilter}
-                          >
-                            <option value="all">All servers</option>
-                            {uniqueToolServers.map((server) => (
-                              <option key={server} value={server}>
-                                {server}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="tool-group-selector-header">
+                          <strong>Available tools</strong>
+                          <span className="form-hint">Select individual tools, not entire servers.</span>
                         </div>
-                        <div className="tool-pick-list">
-                          {availableToolGroupTools.map((tool) => {
-                            const selected = toolGroupForm.selectedTools.includes(tool.canonical_name);
-                            return (
-                              <button
-                                className={`tool-pick-item ${selected ? "is-selected" : ""}`}
-                                key={tool.canonical_name}
-                                onClick={() => toggleToolGroupSelection(tool.canonical_name)}
-                                type="button"
+                        {(data.tools?.tools.length ?? 0) > 0 ? (
+                          <>
+                            <div className="toolbar-cluster">
+                              <input
+                                className="table-filter compact-filter"
+                                onChange={(event) => setToolGroupToolFilter(event.target.value)}
+                                placeholder="Search tools"
+                                value={toolGroupToolFilter}
+                              />
+                              <select
+                                className="table-filter compact-filter compact-select"
+                                onChange={(event) => setToolGroupToolServerFilter(event.target.value)}
+                                value={toolGroupToolServerFilter}
                               >
-                                <div className="table-primary">{tool.name}</div>
-                                <code className="identifier-code" title={tool.canonical_name}>
-                                  {tool.canonical_name}
-                                </code>
-                                <div className="table-secondary">{tool.server}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                                <option value="all">All servers</option>
+                                {uniqueToolServers.map((server) => (
+                                  <option key={server} value={server}>
+                                    {server}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="tool-pick-list">
+                              {availableToolGroupTools.map((tool) => {
+                                const selected = toolGroupForm.selectedTools.includes(tool.canonical_name);
+                                return (
+                                  <button
+                                    className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                    key={tool.canonical_name}
+                                    onClick={() => toggleGroupSelection("tools", tool.canonical_name)}
+                                    type="button"
+                                  >
+                                    <div className="table-primary">{tool.name}</div>
+                                    <code className="identifier-code" title={tool.canonical_name}>
+                                      {tool.canonical_name}
+                                    </code>
+                                    <div className="table-secondary">{tool.server}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-inline">Register MCP servers first so tools are available to group.</p>
+                        )}
                       </>
-                    ) : (
-                      <p className="empty-inline">Register MCP servers first so tools are available to group.</p>
-                    )}
+                    ) : null}
+
+                    {groupPickerKind === "prompts" ? (
+                      <>
+                        <div className="tool-group-selector-header">
+                          <strong>Available prompts</strong>
+                          <span className="form-hint">Select individual prompts from a server.</span>
+                        </div>
+                        {(data.prompts?.prompts.length ?? 0) > 0 ? (
+                          <>
+                            <div className="toolbar-cluster">
+                              <input
+                                className="table-filter compact-filter"
+                                onChange={(event) => setToolGroupPromptFilter(event.target.value)}
+                                placeholder="Search prompts"
+                                value={toolGroupPromptFilter}
+                              />
+                              <select
+                                className="table-filter compact-filter compact-select"
+                                onChange={(event) => setToolGroupPromptServerFilter(event.target.value)}
+                                value={toolGroupPromptServerFilter}
+                              >
+                                <option value="all">All servers</option>
+                                {uniquePromptServers.map((server) => (
+                                  <option key={server} value={server}>
+                                    {server}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="tool-pick-list">
+                              {availableToolGroupPrompts.map((prompt) => {
+                                const selected = toolGroupForm.selectedPrompts.includes(prompt.canonical_name);
+                                return (
+                                  <button
+                                    className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                    key={prompt.canonical_name}
+                                    onClick={() => toggleGroupSelection("prompts", prompt.canonical_name)}
+                                    type="button"
+                                  >
+                                    <div className="table-primary">{prompt.name}</div>
+                                    <code className="identifier-code" title={prompt.canonical_name}>
+                                      {prompt.canonical_name}
+                                    </code>
+                                    <div className="table-secondary">{prompt.server}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-inline">No prompts are available yet.</p>
+                        )}
+                      </>
+                    ) : null}
+
+                    {groupPickerKind === "resources" ? (
+                      <>
+                        <div className="tool-group-selector-header">
+                          <strong>Available resources</strong>
+                          <span className="form-hint">Select individual resources from a server.</span>
+                        </div>
+                        {(data.resources?.resources.length ?? 0) > 0 ? (
+                          <>
+                            <div className="toolbar-cluster">
+                              <input
+                                className="table-filter compact-filter"
+                                onChange={(event) => setToolGroupResourceFilter(event.target.value)}
+                                placeholder="Search resources"
+                                value={toolGroupResourceFilter}
+                              />
+                              <select
+                                className="table-filter compact-filter compact-select"
+                                onChange={(event) => setToolGroupResourceServerFilter(event.target.value)}
+                                value={toolGroupResourceServerFilter}
+                              >
+                                <option value="all">All servers</option>
+                                {uniqueResourceServers.map((server) => (
+                                  <option key={server} value={server}>
+                                    {server}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="tool-pick-list">
+                              {availableToolGroupResources.map((resource) => {
+                                const selected = toolGroupForm.selectedResources.includes(resource.uri);
+                                return (
+                                  <button
+                                    className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                    key={resource.uri}
+                                    onClick={() => toggleGroupSelection("resources", resource.uri)}
+                                    type="button"
+                                  >
+                                    <div className="table-primary">{resource.name}</div>
+                                    <code className="identifier-code" title={resource.uri}>
+                                      {resource.uri}
+                                    </code>
+                                    <div className="table-secondary">{resource.server}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-inline">No resources are available yet.</p>
+                        )}
+                      </>
+                    ) : null}
+
+                    {groupPickerKind === "skills" ? (
+                      <>
+                        <div className="tool-group-selector-header">
+                          <strong>Available skills</strong>
+                          <span className="form-hint">Select individual Agent Skills.</span>
+                        </div>
+                        {(data.skills?.skills.length ?? 0) > 0 ? (
+                          <>
+                            <div className="toolbar-cluster">
+                              <input
+                                className="table-filter compact-filter"
+                                onChange={(event) => setToolGroupSkillFilter(event.target.value)}
+                                placeholder="Search skills"
+                                value={toolGroupSkillFilter}
+                              />
+                            </div>
+                            <div className="tool-pick-list">
+                              {availableToolGroupSkills.map((skill: DashboardSkill) => {
+                                const selected = toolGroupForm.selectedSkills.includes(skill.name);
+                                return (
+                                  <button
+                                    className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                    key={skill.name}
+                                    onClick={() => toggleGroupSelection("skills", skill.name)}
+                                    type="button"
+                                  >
+                                    <div className="table-primary">{skill.name}</div>
+                                    <div className="table-secondary">{skill.description || "No description"}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-inline">
+                            {data.skills?.enabled
+                              ? "No skills are installed yet."
+                              : "Skills are not enabled on this server."}
+                          </p>
+                        )}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="tool-group-selector panel">
                     <div className="tool-group-selector-header">
-                      <strong>Selected tools</strong>
+                      <strong>Selected items</strong>
                     </div>
-                    {toolGroupForm.selectedTools.length > 0 ? (
+                    {groupSelectionCount(toolGroupForm) > 0 ? (
                       <div className="selected-tool-list">
-                        {toolGroupForm.selectedTools.map((toolName) => (
+                        {toolGroupForm.selectedTools.map((id) => (
                           <button
                             className="selected-tool-chip"
-                            key={toolName}
-                            onClick={() => removeToolGroupSelection(toolName)}
+                            key={`tool:${id}`}
+                            onClick={() => removeGroupSelection("tools", id)}
                             type="button"
                           >
-                            <code>{toolName}</code>
+                            <span className="kind-pill">Tool</span>
+                            <code>{id}</code>
+                            <span>Remove</span>
+                          </button>
+                        ))}
+                        {toolGroupForm.selectedPrompts.map((id) => (
+                          <button
+                            className="selected-tool-chip"
+                            key={`prompt:${id}`}
+                            onClick={() => removeGroupSelection("prompts", id)}
+                            type="button"
+                          >
+                            <span className="kind-pill">Prompt</span>
+                            <code>{id}</code>
+                            <span>Remove</span>
+                          </button>
+                        ))}
+                        {toolGroupForm.selectedResources.map((id) => (
+                          <button
+                            className="selected-tool-chip"
+                            key={`resource:${id}`}
+                            onClick={() => removeGroupSelection("resources", id)}
+                            type="button"
+                          >
+                            <span className="kind-pill">Resource</span>
+                            <code>{id}</code>
+                            <span>Remove</span>
+                          </button>
+                        ))}
+                        {toolGroupForm.selectedSkills.map((id) => (
+                          <button
+                            className="selected-tool-chip"
+                            key={`skill:${id}`}
+                            onClick={() => removeGroupSelection("skills", id)}
+                            type="button"
+                          >
+                            <span className="kind-pill">Skill</span>
+                            <code>{id}</code>
                             <span>Remove</span>
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <p className="empty-inline">Select at least one tool.</p>
+                      <p className="empty-inline">Select at least one tool, prompt, resource, or skill.</p>
                     )}
                   </div>
                 </div>
@@ -1913,7 +2278,7 @@ export default function App() {
                   onClick={() => void submitToolGroup()}
                   type="button"
                 >
-                  {isBusy("tool-group-create") ? "Saving..." : "+ Add Tool Group"}
+                  {isBusy("tool-group-create") ? "Saving..." : "+ Add Group"}
                 </button>
               </div>
             </section>

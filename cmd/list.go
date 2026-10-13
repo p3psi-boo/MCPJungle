@@ -76,7 +76,7 @@ var listUsersCmd = &cobra.Command{
 
 var listGroupsCmd = &cobra.Command{
 	Use:   "groups",
-	Short: "List tool groups",
+	Short: "List groups",
 	RunE:  runListGroups,
 }
 
@@ -315,7 +315,7 @@ func runListGroups(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(groups) == 0 {
-		cmd.Println("There are no tool groups in the registry")
+		cmd.Println("There are no groups in the registry")
 		return nil
 	}
 	for i, g := range groups {

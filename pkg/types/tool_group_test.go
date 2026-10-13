@@ -79,6 +79,39 @@ func TestToolGroupJSONMarshalingWithNewFields(t *testing.T) {
 	}
 }
 
+func TestToolGroupJSONMarshalingWithMixedItems(t *testing.T) {
+	t.Parallel()
+
+	group := ToolGroup{
+		Name:              "mixed-group",
+		IncludedTools:     []string{"github__create_issue"},
+		IncludedPrompts:   []string{"github__code_review"},
+		IncludedResources: []string{"mcpj://res/github/abc"},
+		IncludedSkills:    []string{"pdf"},
+		Description:       "Group with mixed item types",
+	}
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		t.Fatalf("Failed to marshal mixed ToolGroup: %v", err)
+	}
+
+	var unmarshaled ToolGroup
+	if err := json.Unmarshal(data, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal mixed ToolGroup: %v", err)
+	}
+
+	if len(unmarshaled.IncludedPrompts) != 1 || unmarshaled.IncludedPrompts[0] != "github__code_review" {
+		t.Errorf("Expected IncludedPrompts [github__code_review], got %v", unmarshaled.IncludedPrompts)
+	}
+	if len(unmarshaled.IncludedResources) != 1 || unmarshaled.IncludedResources[0] != "mcpj://res/github/abc" {
+		t.Errorf("Expected IncludedResources [mcpj://res/github/abc], got %v", unmarshaled.IncludedResources)
+	}
+	if len(unmarshaled.IncludedSkills) != 1 || unmarshaled.IncludedSkills[0] != "pdf" {
+		t.Errorf("Expected IncludedSkills [pdf], got %v", unmarshaled.IncludedSkills)
+	}
+}
+
 func TestCreateToolGroupResponse(t *testing.T) {
 	t.Parallel()
 

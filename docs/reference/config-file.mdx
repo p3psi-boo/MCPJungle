@@ -153,33 +153,39 @@ Used with `mcpjungle register -c <file>`.
 | `env` | object | No | Environment variables injected into the server process. |
 | `session_mode` | string | No | Connection lifecycle: `"stateless"` (default) creates a new process per call; `"stateful"` keeps the process alive between calls. |
 
-### Create a tool group
+### Create a group
 
 Used with `mcpjungle create group -c <file>`.
 
 ```json
 {
-  "name": "claude-tools",
-  "description": "Tools exposed to Claude Desktop",
+  "name": "claude",
+  "description": "Capabilities exposed to Claude Desktop",
   "included_tools": [
     "filesystem__read_file",
     "time__get_current_time"
   ],
   "included_servers": ["deepwiki"],
-  "excluded_tools": ["deepwiki__search"]
+  "excluded_tools": ["deepwiki__search"],
+  "included_prompts": ["github__code_review"],
+  "included_resources": ["mcpj://res/docs/abc"],
+  "included_skills": ["pdf"]
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | Yes | Unique name for the tool group. |
+| `name` | string | Yes | Unique name for the group. |
 | `description` | string | No | Human-readable description. |
 | `included_tools` | string array | No | Explicit list of tools to include, in `<server>__<tool>` format. |
 | `included_servers` | string array | No | Server names whose entire tool set is included. |
 | `excluded_tools` | string array | No | Tools to remove from the final set. Exclusions are always applied last, regardless of how a tool was included. |
+| `included_prompts` | string array | No | Explicit list of prompts to include, in `<server>__<prompt>` format. |
+| `included_resources` | string array | No | Explicit list of resource URIs to include. |
+| `included_skills` | string array | No | Explicit list of Agent Skill names to include. |
 
 <Note>
-  At least one of `included_tools` or `included_servers` should be set, otherwise the group will be empty.
+  The group must resolve to at least one tool, prompt, resource, or skill.
 </Note>
 
 ### Create an MCP client

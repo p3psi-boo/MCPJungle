@@ -14,8 +14,8 @@ type ToolResolver interface {
 	ListToolsByServer(serverName string) ([]Tool, error)
 }
 
-// ToolGroup represents a group of tools.
-// It is useful when the user wants to expose only a subset of all tools to MCP clients.
+// ToolGroup represents a group of MCP tools, prompts, resources and skills.
+// It is useful when the user wants to expose only a subset of capabilities to MCP clients.
 type ToolGroup struct {
 	gorm.Model
 
@@ -31,36 +31,59 @@ type ToolGroup struct {
 
 	// ExcludedTools contains a list of tool names to exclude from the group.
 	ExcludedTools datatypes.JSON `json:"excluded_tools" gorm:"type:jsonb"`
+
+	// IncludedPrompts contains a list of canonical prompt names included in this group.
+	IncludedPrompts datatypes.JSON `json:"included_prompts" gorm:"type:jsonb"`
+
+	// IncludedResources contains a list of resource URIs included in this group.
+	IncludedResources datatypes.JSON `json:"included_resources" gorm:"type:jsonb"`
+
+	// IncludedSkills contains a list of Agent Skill names included in this group.
+	IncludedSkills datatypes.JSON `json:"included_skills" gorm:"type:jsonb"`
+}
+
+func unmarshalJSONStringList(raw datatypes.JSON) ([]string, error) {
+	if len(raw) == 0 {
+		return []string{}, nil
+	}
+	var items []string
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil, err
+	}
+	if items == nil {
+		return []string{}, nil
+	}
+	return items, nil
 }
 
 // GetTools unmarshals the IncludedTools JSON array into a slice of strings.
 func (g *ToolGroup) GetTools() ([]string, error) {
-	if g.IncludedTools == nil {
-		return []string{}, nil
-	}
-	var tools []string
-	err := json.Unmarshal(g.IncludedTools, &tools)
-	return tools, err
+	return unmarshalJSONStringList(g.IncludedTools)
 }
 
 // GetServers unmarshals the IncludedServers JSON array into a slice of strings.
 func (g *ToolGroup) GetServers() ([]string, error) {
-	if g.IncludedServers == nil {
-		return []string{}, nil
-	}
-	var servers []string
-	err := json.Unmarshal(g.IncludedServers, &servers)
-	return servers, err
+	return unmarshalJSONStringList(g.IncludedServers)
 }
 
 // GetExcludedTools unmarshals the ExcludedTools JSON array into a slice of strings.
 func (g *ToolGroup) GetExcludedTools() ([]string, error) {
-	if g.ExcludedTools == nil {
-		return []string{}, nil
-	}
-	var tools []string
-	err := json.Unmarshal(g.ExcludedTools, &tools)
-	return tools, err
+	return unmarshalJSONStringList(g.ExcludedTools)
+}
+
+// GetPrompts unmarshals the IncludedPrompts JSON array into a slice of strings.
+func (g *ToolGroup) GetPrompts() ([]string, error) {
+	return unmarshalJSONStringList(g.IncludedPrompts)
+}
+
+// GetResources unmarshals the IncludedResources JSON array into a slice of strings.
+func (g *ToolGroup) GetResources() ([]string, error) {
+	return unmarshalJSONStringList(g.IncludedResources)
+}
+
+// GetSkills unmarshals the IncludedSkills JSON array into a slice of strings.
+func (g *ToolGroup) GetSkills() ([]string, error) {
+	return unmarshalJSONStringList(g.IncludedSkills)
 }
 
 // ResolveEffectiveTools resolves all effective tools for this group by combining

@@ -63,15 +63,18 @@ var createUserCmd = &cobra.Command{
 
 var createToolGroupCmd = &cobra.Command{
 	Use:   "group --conf <file>",
-	Short: "Create a Group of MCP Tools",
-	Long: "Create a new Group of MCP Tools by supplying a configuration file.\n" +
-		"A group lets you expose only a handful of Tools that you choose.\n" +
-		"This limits the number of tools your MCP client sees, increasing calling accuracy of the LLM.\n\n" +
-		"You can include tools by:\n" +
+	Short: "Create a Group of MCP tools, prompts, resources, and skills",
+	Long: "Create a new Group by supplying a configuration file.\n" +
+		"A group lets you expose only the tools, prompts, resources, and skills that you choose.\n" +
+		"This limits what your MCP client sees, increasing calling accuracy of the LLM.\n\n" +
+		"You can include items by:\n" +
 		"  - Specifying individual tools with 'included_tools'\n" +
 		"  - Including all tools from servers with 'included_servers'\n" +
-		"  - Excluding specific tools with 'excluded_tools'\n\n" +
-		"Once you create a tool group, it is accessible as a streamable http MCP server at the following endpoint:\n" +
+		"  - Excluding specific tools with 'excluded_tools'\n" +
+		"  - Specifying individual prompts with 'included_prompts'\n" +
+		"  - Specifying individual resources with 'included_resources'\n" +
+		"  - Specifying individual skills with 'included_skills'\n\n" +
+		"Once you create a group, it is accessible as a streamable http MCP server at the following endpoint:\n" +
 		"    /v0/groups/{group_name}/mcp\n",
 	RunE: runCreateToolGroup,
 }
@@ -286,7 +289,7 @@ func runCreateToolGroup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create tool group: %w", err)
 	}
 
-	cmd.Printf("Tool Group %s created successfully\n", group.Name)
+	cmd.Printf("Group %s created successfully\n", group.Name)
 	cmd.Print("It is now accessible at the following streamable http endpoint:\n\n")
 	cmd.Println("    " + resp.StreamableHTTPEndpoint + "\n")
 

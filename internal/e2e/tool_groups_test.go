@@ -152,29 +152,29 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_InvokeTool(t *testing.T) {
 	assert.Contains(t, first.Text, "hello from group endpoint")
 }
 
-// TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListPrompts verifies prompt
-// listing in the context of a tool group. Prompts are not group-scoped in the
-// current implementation, so this test uses the global REST API and confirms
-// that the expected server-everything prompts are still accessible.
+// TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListPrompts verifies that the
+// group's MCP endpoint lists only the prompts included in the group.
 func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListPrompts(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	registerEverythingServer(t, env, "")
 
 	resp := env.do(t, http.MethodPost, "/api/v0/tool-groups", map[string]any{
-		"name":           "prompts-group",
-		"included_tools": []string{"everything__echo"},
+		"name":             "prompts-group",
+		"included_tools":   []string{"everything__echo"},
+		"included_prompts": []string{"everything__simple-prompt"},
 	}, "")
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	drain(resp)
 
-	resp = env.do(t, http.MethodGet, "/api/v0/prompts", nil, "")
-	defer drain(resp)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var prompts []map[string]any
-	decodeJSON(t, resp, &prompts)
-	names := promptNames(prompts)
-	assert.Contains(t, names, "everything__simple-prompt")
-	assert.Contains(t, names, "everything__args-prompt")
+	c := newGroupMCPClient(t, env, "prompts-group", "")
+	result, err := c.ListPrompts(context.Background(), mcp.ListPromptsRequest{})
+	require.NoError(t, err)
+	names := make([]string, 0, len(result.Prompts))
+	for _, prompt := range result.Prompts {
+		names = append(names, prompt.Name)
+	}
+	assert.Contains(t, names, "everything__simple-prompt", "group must expose the included prompt")
+	assert.NotContains(t, names, "everything__args-prompt", "group must NOT expose prompts outside its scope")
 }
 
 // TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_GetPrompt verifies that a prompt

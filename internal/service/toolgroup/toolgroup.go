@@ -9,13 +9,11 @@ import (
 	"sort"
 	"sync"
 
-	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"github.com/mcpjungle/mcpjungle/pkg/util"
 	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"gorm.io/gorm"
 )
@@ -59,9 +57,14 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		sseMcpServerMu: sync.RWMutex{},
 	}
 
-	// register callbacks with mcp service to be notified when a tool gets added/removed
+	// register callbacks with mcp service to be notified when items get added/removed
 	mcpService.SetToolDeletionCallback(s.handleToolDeletion)
 	mcpService.SetToolAdditionCallback(s.handleToolAddition)
+	mcpService.SetPromptDeletionCallback(s.handlePromptDeletion)
+	mcpService.SetPromptAdditionCallback(s.handlePromptAddition)
+	mcpService.SetResourceDeletionCallback(s.handleResourceDeletion)
+	mcpService.SetResourceAdditionCallback(s.handleResourceAddition)
+	mcpService.SetSkillChangeCallback(s.handleSkillChange)
 
 	if err := s.initToolGroupMCPServers(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
@@ -83,41 +86,23 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 		)
 	}
 
-	// resolve all effective tools for this group
-	toolNames, err := group.ResolveEffectiveTools(s.mcpService)
+	membership, err := s.resolveGroupMembership(group)
 	if err != nil {
-		return fmt.Errorf("failed to resolve effective tools: %w", err)
+		return err
 	}
-	if len(toolNames) == 0 {
+	if membership.empty() {
 		return fmt.Errorf(
-			"tool group must contain at least one tool after resolving servers and exclusions: %w",
+			"group must contain at least one tool, prompt, resource, or skill: %w",
 			apierrors.ErrInvalidInput,
 		)
 	}
 
-	// create the proxy MCP servers that expose only specified tools
+	// create the proxy MCP servers that expose only the selected items
 	mcpServer := s.newMCPServer(group.Name)
 	sseMcpServer := s.newSseMCPServer(group.Name)
 
-	// populate the MCP servers with the specified tools
-	// this also has a side effect of validating that the tools exist in mcpjungle.
-	// if a tool does not exist, return an error without creating the group.
-	for _, name := range toolNames {
-		tool, exists := s.mcpService.GetToolInstance(name)
-		if !exists {
-			return fmt.Errorf("tool %s does not exist or is disabled: %w", name, apierrors.ErrInvalidInput)
-		}
-
-		parentServer, err := s.mcpService.GetToolParentServer(name)
-		if err != nil {
-			return fmt.Errorf("failed to get parent MCP server of the tool %s: %w", name, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-		} else {
-			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-		}
+	if err := s.populateGroupServers(mcpServer, sseMcpServer, membership, true); err != nil {
+		return err
 	}
 
 	// first, add the tool group to the database
@@ -145,25 +130,20 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return nil, fmt.Errorf("failed to retrieve the tool group: %w", err)
 	}
 
-	// determine which tools were added or removed from the group
-	oldToolNames, err := oldGroup.ResolveEffectiveTools(s.mcpService)
+	oldMembership, err := s.resolveGroupMembership(oldGroup)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve effective tools of original group: %w", err)
+		return nil, fmt.Errorf("failed to resolve original group: %w", err)
 	}
-	updatedToolNames, err := updatedGroup.ResolveEffectiveTools(s.mcpService)
+	updatedMembership, err := s.resolveGroupMembership(updatedGroup)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve effective tools of the updated group: %w", err)
+		return nil, fmt.Errorf("failed to resolve updated group: %w", err)
 	}
-
-	toolsAdded, toolsRemoved := util.DiffTools(oldToolNames, updatedToolNames)
 
 	// if nothing was actually changed in the group, no need to proceed further
-	if updatedGroup.Description == oldGroup.Description && len(toolsAdded) == 0 && len(toolsRemoved) == 0 {
+	if updatedGroup.Description == oldGroup.Description && !membershipChanged(oldMembership, updatedMembership) {
 		return oldGroup, nil
 	}
 
-	// determine the changes to make to the tool group's proxy MCP server instances (normal + SSE)
-	// all changes are ultimately made at the end of this method to avoid inconsistent state in case of errors.
 	mcpServer, exists := s.GetToolGroupMCPServer(name)
 	if !exists {
 		return nil, fmt.Errorf("MCP server for tool group %s does not exist", name)
@@ -173,50 +153,8 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return nil, fmt.Errorf("SSE MCP server for tool group %s does not exist", name)
 	}
 
-	// tools added to the group must be added to its MCP server instances
-	var sseToolsToAdd, normalToolsToAdd []mcpgo.Tool
-	for _, toolName := range toolsAdded {
-		tool, exists := s.mcpService.GetToolInstance(toolName)
-		if !exists {
-			return nil, fmt.Errorf("tool %s does not exist or is disabled: %w", toolName, apierrors.ErrInvalidInput)
-		}
-
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseToolsToAdd = append(sseToolsToAdd, tool)
-		} else {
-			normalToolsToAdd = append(normalToolsToAdd, tool)
-		}
-	}
-
-	// tools removed from the group must be removed from its MCP server instances
-	var sseToolsToRemove, normalToolsToRemove []string
-	for _, toolName := range toolsRemoved {
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseToolsToRemove = append(sseToolsToRemove, toolName)
-		} else {
-			normalToolsToRemove = append(normalToolsToRemove, toolName)
-		}
-	}
-
-	// make all the changes together to avoid inconsistent state in case of errors
-	mcpServer.DeleteTools(normalToolsToRemove...)
-	sseMcpServer.DeleteTools(sseToolsToRemove...)
-
-	for _, tool := range normalToolsToAdd {
-		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-	}
-	for _, tool := range sseToolsToAdd {
-		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	if err := s.applyMembershipDiff(mcpServer, sseMcpServer, oldMembership, updatedMembership); err != nil {
+		return nil, err
 	}
 
 	// as a final step, update the tool group record in the database
@@ -303,7 +241,7 @@ func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
 		version.GetVersion(),
-		server.WithResourceCapabilities(false, false),
+		server.WithResourceCapabilities(true, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -315,7 +253,7 @@ func (s *ToolGroupService) newSseMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
 		version.GetVersion(),
-		server.WithResourceCapabilities(false, false),
+		server.WithResourceCapabilities(true, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -366,15 +304,15 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 		mcpServer := s.newMCPServer(group.Name)
 		sseMcpServer := s.newSseMCPServer(group.Name)
 
-		toolNames, err := group.ResolveEffectiveTools(s.mcpService)
+		membership, err := s.resolveGroupMembership(&group)
 		if err != nil {
-			// If resolution of any server or specific tool fails for a group, the error is logged and
+			// If resolution of any server or specific item fails for a group, the error is logged and
 			// the group is added as an empty MCP server to the proxy.
 			// This is not ideal, but it ensures that mcpjungle server startup doesn't fail.
 			// TODO: Change design to include all other servers & tools that were resolved.
 			// See https://github.com/mcpjungle/MCPJungle/issues/233
 			log.Printf(
-				"[ERROR] failed to resolve effective tools for tool group %s during startup; the tool group will be initialized as empty: %v",
+				"[ERROR] failed to resolve group %s during startup; the group will be initialized as empty: %v",
 				group.Name,
 				err,
 			)
@@ -382,27 +320,8 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 			s.addToolGroupSseMCPServer(group.Name, sseMcpServer)
 			continue
 		}
-		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
-
-		for _, name := range toolNames {
-			tool, exists := s.mcpService.GetToolInstance(name)
-			if !exists {
-				// it is possible that a tool group contains a tool that does not exist.
-				// this should not prevent server startup, so just skip instead of returning an error.
-				// TODO: Add a warning log here.
-				continue
-			}
-
-			parentServer, err := s.mcpService.GetToolParentServer(name)
-			if err != nil {
-				return fmt.Errorf("failed to get parent MCP server of the tool %s: %w", name, err)
-			}
-
-			if parentServer.Transport == types.TransportSSE {
-				sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-			} else {
-				mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-			}
+		if err := s.populateGroupServers(mcpServer, sseMcpServer, membership, false); err != nil {
+			log.Printf("[ERROR] failed to populate group %s during startup: %v", group.Name, err)
 		}
 
 		s.addToolGroupMCPServer(group.Name, mcpServer)
@@ -492,4 +411,124 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 	}
 
 	return nil
+}
+
+func (s *ToolGroupService) handlePromptDeletion(prompts ...string) {
+	s.mcpServersMu.RLock()
+	defer s.mcpServersMu.RUnlock()
+	s.sseMcpServerMu.Lock()
+	defer s.sseMcpServerMu.Unlock()
+
+	for _, mcpServer := range s.mcpServers {
+		mcpServer.DeletePrompts(prompts...)
+	}
+	for _, sseMcpServer := range s.sseMcpServers {
+		sseMcpServer.DeletePrompts(prompts...)
+	}
+}
+
+func (s *ToolGroupService) handlePromptAddition(newPrompt string) error {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups from DB: %w", err)
+	}
+	for i := range groups {
+		included, err := groups[i].GetPrompts()
+		if err != nil {
+			return fmt.Errorf("failed to read prompts of group %s: %w", groups[i].Name, err)
+		}
+		if !containsString(included, newPrompt) {
+			continue
+		}
+		mcpServer, ok := s.GetToolGroupMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		sseMcpServer, ok := s.GetToolGroupSseMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		if err := s.addPromptToGroupServers(mcpServer, sseMcpServer, newPrompt, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ToolGroupService) handleResourceDeletion(resources ...string) {
+	s.mcpServersMu.RLock()
+	defer s.mcpServersMu.RUnlock()
+	s.sseMcpServerMu.Lock()
+	defer s.sseMcpServerMu.Unlock()
+
+	for _, mcpServer := range s.mcpServers {
+		mcpServer.DeleteResources(resources...)
+	}
+	for _, sseMcpServer := range s.sseMcpServers {
+		sseMcpServer.DeleteResources(resources...)
+	}
+}
+
+func (s *ToolGroupService) handleResourceAddition(newResource string) error {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups from DB: %w", err)
+	}
+	for i := range groups {
+		included, err := groups[i].GetResources()
+		if err != nil {
+			return fmt.Errorf("failed to read resources of group %s: %w", groups[i].Name, err)
+		}
+		if !containsString(included, newResource) {
+			continue
+		}
+		mcpServer, ok := s.GetToolGroupMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		sseMcpServer, ok := s.GetToolGroupSseMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		if err := s.addResourceToGroupServers(mcpServer, sseMcpServer, newResource, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ToolGroupService) handleSkillChange() {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		log.Printf("[ERROR] failed to list groups while refreshing skills: %v", err)
+		return
+	}
+	for i := range groups {
+		skills, err := groups[i].GetSkills()
+		if err != nil || len(skills) == 0 {
+			continue
+		}
+		mcpServer, ok := s.GetToolGroupMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		sseMcpServer, ok := s.GetToolGroupSseMCPServer(groups[i].Name)
+		if !ok {
+			continue
+		}
+		s.mcpService.DetachSkillsFromServer(mcpServer, skills)
+		s.mcpService.DetachSkillsFromServer(sseMcpServer, skills)
+		if err := s.attachSkillsToGroupServers(mcpServer, sseMcpServer, skills, false); err != nil {
+			log.Printf("[ERROR] failed to refresh skills for group %s: %v", groups[i].Name, err)
+		}
+	}
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
