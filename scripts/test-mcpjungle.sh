@@ -719,6 +719,19 @@ if [[ -f "$REGISTRY_RUNTIME_DIR/mcpjungle.db" ]]; then
   exit 1
 fi
 
+log "Verifying skills are enabled by default"
+SKILLS_JSON=$(curl -fsS "$REGISTRY_URL/api/dashboard/skills")
+if [[ "$SKILLS_JSON" != *'"enabled":true'* ]]; then
+  echo "ERROR: expected skills to be enabled by default so the dashboard can add them" >&2
+  echo "$SKILLS_JSON" >&2
+  exit 1
+fi
+if [[ "$SKILLS_JSON" != *'"can_install":true'* ]]; then
+  echo "ERROR: expected skills to be installable from the dashboard by default" >&2
+  echo "$SKILLS_JSON" >&2
+  exit 1
+fi
+
 # 4) Basic CLI sanity checks
 log "Verifying CLI help and version"
 "$BIN_PATH" --help >/dev/null
