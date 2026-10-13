@@ -334,6 +334,54 @@ func TestNewToolGroupService_DegradedPersistedGroupDoesNotFailStartup(t *testing
 	}
 }
 
+func TestCreateToolGroup_PromptOnlySucceeds(t *testing.T) {
+	db := setupInMemoryDB(t)
+
+	srv, err := model.NewStdioServer("docs", "Docs server", "echo", nil, nil, "")
+	if err != nil {
+		t.Fatalf("failed to create server model: %v", err)
+	}
+	if err := db.Create(srv).Error; err != nil {
+		t.Fatalf("failed to persist server: %v", err)
+	}
+	prompt := model.Prompt{
+		ServerID:    srv.ID,
+		Name:        "review",
+		Description: "Review prompt",
+		Arguments:   datatypes.JSON([]byte(`[]`)),
+		Enabled:     true,
+	}
+	if err := db.Create(&prompt).Error; err != nil {
+		t.Fatalf("failed to persist prompt: %v", err)
+	}
+
+	s := &ToolGroupService{
+		db:            db,
+		mcpService:    newTestMCPService(t, db),
+		mcpServers:    make(map[string]*server.MCPServer),
+		sseMcpServers: make(map[string]*server.MCPServer),
+	}
+	err = s.CreateToolGroup(&model.ToolGroup{
+		Name:            "prompts-only",
+		IncludedPrompts: datatypes.JSON([]byte(`["docs__review"]`)),
+	})
+	if err != nil {
+		t.Fatalf("expected prompt-only group to be created, got: %v", err)
+	}
+
+	stored, err := s.GetToolGroup("prompts-only")
+	if err != nil {
+		t.Fatalf("failed to load created group: %v", err)
+	}
+	prompts, err := stored.GetPrompts()
+	if err != nil {
+		t.Fatalf("failed to read stored prompts: %v", err)
+	}
+	if len(prompts) != 1 || prompts[0] != "docs__review" {
+		t.Fatalf("expected stored prompts [docs__review], got %v", prompts)
+	}
+}
+
 func TestCreateToolGroup_InvalidIncludedServerStillFailsFast(t *testing.T) {
 	db := setupInMemoryDB(t)
 	s := &ToolGroupService{

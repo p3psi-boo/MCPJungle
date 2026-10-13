@@ -81,7 +81,7 @@ func TestCreateUserSubcommand(t *testing.T) {
 func TestCreateToolGroupSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "group --conf <file>", createToolGroupCmd.Use)
-	testhelpers.AssertEqual(t, "Create a Group of MCP Tools", createToolGroupCmd.Short)
+	testhelpers.AssertEqual(t, "Create a Group of MCP tools, prompts, resources, and skills", createToolGroupCmd.Short)
 	testhelpers.AssertNotNil(t, createToolGroupCmd.Long)
 	testhelpers.AssertTrue(t, len(createToolGroupCmd.Long) > 0, "Long description should not be empty")
 

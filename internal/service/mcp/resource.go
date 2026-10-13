@@ -129,6 +129,39 @@ func (m *MCPService) ListResourcesByServer(name string) ([]model.Resource, error
 	return resources, nil
 }
 
+// ResourceDeletionCallback is called when one or more resources are deleted or disabled.
+type ResourceDeletionCallback func(resourceURIs ...string)
+
+// ResourceAdditionCallback is called when a resource is added or re-enabled.
+type ResourceAdditionCallback func(resourceURI string) error
+
+// BuildEnabledResource converts an enabled resource into an MCP resource object.
+func (m *MCPService) BuildEnabledResource(uri string) (mcp.Resource, *model.McpServer, error) {
+	rm, err := m.GetResource(uri)
+	if err != nil {
+		return mcp.Resource{}, nil, err
+	}
+	if !rm.Enabled {
+		return mcp.Resource{}, nil, fmt.Errorf("resource %s does not exist or is disabled: %w", uri, apierrors.ErrInvalidInput)
+	}
+	resource, err := convertResourceModelToMcpObject(rm)
+	if err != nil {
+		return mcp.Resource{}, nil, err
+	}
+	resource.Name = rm.Name
+	return resource, &rm.Server, nil
+}
+
+// SetResourceDeletionCallback registers a callback invoked when resources are removed or disabled.
+func (m *MCPService) SetResourceDeletionCallback(callback ResourceDeletionCallback) {
+	m.resourceDeletionCallback = callback
+}
+
+// SetResourceAdditionCallback registers a callback invoked when resources are added or re-enabled.
+func (m *MCPService) SetResourceAdditionCallback(callback ResourceAdditionCallback) {
+	m.resourceAdditionCallback = callback
+}
+
 // GetResource fetches resource metadata by URI.
 func (m *MCPService) GetResource(uri string) (*model.Resource, error) {
 	if uri == "" {
@@ -245,12 +278,14 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 		} else {
 			m.mcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
 		}
+		m.notifyResourceAddition(resource.URI)
 	} else {
 		if resource.Server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.DeleteResources(resource.URI)
 		} else {
 			m.mcpProxyServer.DeleteResources(resource.URI)
 		}
+		m.notifyResourceDeletion(resource.URI)
 	}
 
 	return []string{resource.URI}, nil
@@ -284,12 +319,14 @@ func (m *MCPService) setServerResourcesEnabled(s *model.McpServer, enabled bool)
 			} else {
 				m.mcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
 			}
+			m.notifyResourceAddition(resources[i].URI)
 		} else {
 			if s.Transport == types.TransportSSE {
 				m.sseMcpProxyServer.DeleteResources(resources[i].URI)
 			} else {
 				m.mcpProxyServer.DeleteResources(resources[i].URI)
 			}
+			m.notifyResourceDeletion(resources[i].URI)
 		}
 
 		changedURIs = append(changedURIs, resources[i].URI)
@@ -333,6 +370,7 @@ func (m *MCPService) registerServerResources(ctx context.Context, s *model.McpSe
 		} else {
 			m.mcpProxyServer.AddResource(resource, m.mcpProxyResourceHandler)
 		}
+		m.notifyResourceAddition(r.URI)
 	}
 
 	return nil
@@ -361,6 +399,23 @@ func (m *MCPService) deregisterServerResources(s *model.McpServer) error {
 	} else {
 		m.mcpProxyServer.DeleteResources(resourceURIs...)
 	}
+	m.notifyResourceDeletion(resourceURIs...)
 
 	return nil
+}
+
+func (m *MCPService) notifyResourceDeletion(resourceURIs ...string) {
+	if m.resourceDeletionCallback == nil {
+		return
+	}
+	m.resourceDeletionCallback(resourceURIs...)
+}
+
+func (m *MCPService) notifyResourceAddition(resourceURI string) {
+	if m.resourceAdditionCallback == nil {
+		return
+	}
+	if err := m.resourceAdditionCallback(resourceURI); err != nil {
+		log.Printf("[ERROR] resource addition callback failed for resource %s: %v", resourceURI, err)
+	}
 }

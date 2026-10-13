@@ -61,6 +61,42 @@ func TestToolGroup_GetServers(t *testing.T) {
 	}
 }
 
+func TestToolGroup_GetPromptsResourcesSkills(t *testing.T) {
+	promptsJSON, _ := json.Marshal([]string{"srv__p1"})
+	resourcesJSON, _ := json.Marshal([]string{"mcpj://res/srv/abc"})
+	skillsJSON, _ := json.Marshal([]string{"pdf"})
+
+	group := &ToolGroup{
+		IncludedPrompts:   datatypes.JSON(promptsJSON),
+		IncludedResources: datatypes.JSON(resourcesJSON),
+		IncludedSkills:    datatypes.JSON(skillsJSON),
+	}
+
+	prompts, err := group.GetPrompts()
+	if err != nil {
+		t.Fatalf("GetPrompts() failed: %v", err)
+	}
+	if len(prompts) != 1 || prompts[0] != "srv__p1" {
+		t.Errorf("GetPrompts() = %v", prompts)
+	}
+
+	resources, err := group.GetResources()
+	if err != nil {
+		t.Fatalf("GetResources() failed: %v", err)
+	}
+	if len(resources) != 1 || resources[0] != "mcpj://res/srv/abc" {
+		t.Errorf("GetResources() = %v", resources)
+	}
+
+	skills, err := group.GetSkills()
+	if err != nil {
+		t.Fatalf("GetSkills() failed: %v", err)
+	}
+	if len(skills) != 1 || skills[0] != "pdf" {
+		t.Errorf("GetSkills() = %v", skills)
+	}
+}
+
 func TestToolGroup_GetExcludedTools(t *testing.T) {
 	tools := []string{"excluded1", "excluded2"}
 	toolsJSON, _ := json.Marshal(tools)

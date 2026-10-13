@@ -81,7 +81,7 @@ export interface DashboardToolsResponse {
   empty_state?: DashboardEmptyState;
 }
 
-export interface DashboardToolGroupTool {
+export interface DashboardToolGroupItem {
   name: string;
   canonical_name: string;
   server: string;
@@ -92,7 +92,13 @@ export interface DashboardToolGroup {
   name: string;
   description?: string;
   tool_count: number;
-  tools: DashboardToolGroupTool[];
+  prompt_count: number;
+  resource_count: number;
+  skill_count: number;
+  tools: DashboardToolGroupItem[];
+  prompts: DashboardToolGroupItem[];
+  resources: DashboardToolGroupItem[];
+  skills: DashboardToolGroupItem[];
   streamable_http_endpoint: string;
   sse_endpoint: string;
   sse_message_endpoint: string;
@@ -171,6 +177,9 @@ export interface DashboardCreateToolGroupInput {
   name: string;
   description?: string;
   tools: string[];
+  prompts: string[];
+  resources: string[];
+  skills: string[];
 }
 
 export interface DashboardOAuthAuthorizationRequired {

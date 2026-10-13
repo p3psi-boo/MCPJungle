@@ -56,6 +56,52 @@ func (m *MCPService) ListPromptsByServer(name string) ([]model.Prompt, error) {
 	return prompts, nil
 }
 
+// PromptDeletionCallback is called when one or more prompts are deleted or disabled.
+type PromptDeletionCallback func(promptNames ...string)
+
+// PromptAdditionCallback is called when a prompt is added or re-enabled.
+type PromptAdditionCallback func(promptName string) error
+
+// GetPromptParentServer returns the MCP server that provides the given prompt.
+func (m *MCPService) GetPromptParentServer(name string) (*model.McpServer, error) {
+	serverName, _, ok := splitServerPromptName(name)
+	if !ok {
+		return nil, fmt.Errorf("prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
+	}
+	return m.GetMcpServer(serverName)
+}
+
+// BuildEnabledPrompt converts an enabled prompt into an MCP prompt object.
+func (m *MCPService) BuildEnabledPrompt(name string) (mcp.Prompt, *model.McpServer, error) {
+	pm, err := m.GetPrompt(name)
+	if err != nil {
+		return mcp.Prompt{}, nil, err
+	}
+	if !pm.Enabled {
+		return mcp.Prompt{}, nil, fmt.Errorf("prompt %s does not exist or is disabled: %w", name, apierrors.ErrInvalidInput)
+	}
+	prompt, err := convertPromptModelToMcpObject(pm)
+	if err != nil {
+		return mcp.Prompt{}, nil, err
+	}
+	prompt.Name = name
+	parent, err := m.GetPromptParentServer(name)
+	if err != nil {
+		return mcp.Prompt{}, nil, err
+	}
+	return prompt, parent, nil
+}
+
+// SetPromptDeletionCallback registers a callback invoked when prompts are removed or disabled.
+func (m *MCPService) SetPromptDeletionCallback(callback PromptDeletionCallback) {
+	m.promptDeletionCallback = callback
+}
+
+// SetPromptAdditionCallback registers a callback invoked when prompts are added or re-enabled.
+func (m *MCPService) SetPromptAdditionCallback(callback PromptAdditionCallback) {
+	m.promptAdditionCallback = callback
+}
+
 // GetPrompt fetches a prompt from the database by its canonical name.
 func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 	serverName, promptName, ok := splitServerPromptName(name)
@@ -208,6 +254,7 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			} else {
 				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
 			}
+			m.notifyPromptAddition(entity)
 		} else {
 			// if the prompt was disabled, remove it from the MCP proxy server
 			if s.Transport == types.TransportSSE {
@@ -215,6 +262,7 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			} else {
 				m.mcpProxyServer.DeletePrompts(entity)
 			}
+			m.notifyPromptDeletion(entity)
 		}
 
 		return []string{entity}, nil
@@ -256,12 +304,14 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			} else {
 				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
 			}
+			m.notifyPromptAddition(canonicalPromptName)
 		} else {
 			if s.Transport == types.TransportSSE {
 				m.sseMcpProxyServer.DeletePrompts(canonicalPromptName)
 			} else {
 				m.mcpProxyServer.DeletePrompts(canonicalPromptName)
 			}
+			m.notifyPromptDeletion(canonicalPromptName)
 		}
 
 		changedPromptNames = append(changedPromptNames, canonicalPromptName)
@@ -304,6 +354,7 @@ func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServ
 			} else {
 				m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
 			}
+			m.notifyPromptAddition(canonicalPromptName)
 		}
 	}
 	return nil
@@ -335,6 +386,23 @@ func (m *MCPService) deregisterServerPrompts(s *model.McpServer) error {
 	} else {
 		m.mcpProxyServer.DeletePrompts(promptNames...)
 	}
+	m.notifyPromptDeletion(promptNames...)
 
 	return nil
+}
+
+func (m *MCPService) notifyPromptDeletion(promptNames ...string) {
+	if m.promptDeletionCallback == nil {
+		return
+	}
+	m.promptDeletionCallback(promptNames...)
+}
+
+func (m *MCPService) notifyPromptAddition(promptName string) {
+	if m.promptAdditionCallback == nil {
+		return
+	}
+	if err := m.promptAdditionCallback(promptName); err != nil {
+		log.Printf("[ERROR] prompt addition callback failed for prompt %s: %v", promptName, err)
+	}
 }

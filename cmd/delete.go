@@ -35,7 +35,7 @@ var deleteUserCmd = &cobra.Command{
 var deleteToolGroupCmd = &cobra.Command{
 	Use:   "group [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Delete a tool group",
+	Short: "Delete a group",
 	Long: "Delete a tool group from mcpjungle.\n" +
 		"Once you delete a group, its endpoint is no longer available.\n" +
 		"So make sure no MCP clients are relying on the endpoint before you delete a group.\n" +

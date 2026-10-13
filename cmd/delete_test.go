@@ -77,7 +77,7 @@ func TestDeleteUserSubcommand(t *testing.T) {
 func TestDeleteToolGroupSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "group [name]", deleteToolGroupCmd.Use)
-	testhelpers.AssertEqual(t, "Delete a tool group", deleteToolGroupCmd.Short)
+	testhelpers.AssertEqual(t, "Delete a group", deleteToolGroupCmd.Short)
 	testhelpers.AssertNotNil(t, deleteToolGroupCmd.Long)
 	testhelpers.AssertTrue(t, len(deleteToolGroupCmd.Long) > 0, "Long description should not be empty")
 

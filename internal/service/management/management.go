@@ -74,11 +74,14 @@ type toolGroupView struct {
 // toolGroupArgs holds the arguments of create_tool_group and update_tool_group.
 // Pointer fields distinguish "not provided" (keep the current value on update) from "set to empty".
 type toolGroupArgs struct {
-	Name            string    `json:"name"`
-	Description     *string   `json:"description"`
-	IncludedTools   *[]string `json:"included_tools"`
-	IncludedServers *[]string `json:"included_servers"`
-	ExcludedTools   *[]string `json:"excluded_tools"`
+	Name              string    `json:"name"`
+	Description       *string   `json:"description"`
+	IncludedTools     *[]string `json:"included_tools"`
+	IncludedServers   *[]string `json:"included_servers"`
+	ExcludedTools     *[]string `json:"excluded_tools"`
+	IncludedPrompts   *[]string `json:"included_prompts"`
+	IncludedResources *[]string `json:"included_resources"`
+	IncludedSkills    *[]string `json:"included_skills"`
 }
 
 func toolName(name string) string {
@@ -103,13 +106,28 @@ func (s *Service) Tools() []server.ServerTool {
 			mcpgo.WithStringItems(),
 			mcpgo.Description("Canonical names of tools to leave out; exclusions win over inclusions"),
 		),
+		mcpgo.WithArray(
+			"included_prompts",
+			mcpgo.WithStringItems(),
+			mcpgo.Description("Canonical names of prompts to include, eg- github__code_review"),
+		),
+		mcpgo.WithArray(
+			"included_resources",
+			mcpgo.WithStringItems(),
+			mcpgo.Description("Resource URIs to include, as returned by the gateway"),
+		),
+		mcpgo.WithArray(
+			"included_skills",
+			mcpgo.WithStringItems(),
+			mcpgo.Description("Names of Agent Skills to include, eg- pdf"),
+		),
 	}
 
 	createOptions := append([]mcpgo.ToolOption{
 		mcpgo.WithDescription(
-			"Create a tool group: a named subset of tools served on its own MCP endpoint, so that a client " +
-				"only sees the tools it needs. The group must resolve to at least one enabled tool. " +
-				"Use " + toolName(listToolsToolName) + " to find tool names.",
+			"Create a group: a named subset of tools, prompts, resources and skills served on its own MCP " +
+				"endpoint, so that a client only sees the items it needs. The group must resolve to at least " +
+				"one enabled item. Use " + toolName(listToolsToolName) + " to find tool names.",
 		),
 		mcpgo.WithString(
 			"name",
@@ -383,11 +401,14 @@ func (s *Service) handleUpdateToolGroup(_ context.Context, request mcpgo.CallToo
 		return mcpgo.NewToolResultError(err.Error()), nil
 	}
 	updated := &model.ToolGroup{
-		Name:            current.Name,
-		Description:     current.Description,
-		IncludedTools:   current.IncludedTools,
-		IncludedServers: current.IncludedServers,
-		ExcludedTools:   current.ExcludedTools,
+		Name:              current.Name,
+		Description:       current.Description,
+		IncludedTools:     current.IncludedTools,
+		IncludedServers:   current.IncludedServers,
+		ExcludedTools:     current.ExcludedTools,
+		IncludedPrompts:   current.IncludedPrompts,
+		IncludedResources: current.IncludedResources,
+		IncludedSkills:    current.IncludedSkills,
 	}
 	if err := args.applyTo(updated); err != nil {
 		return mcpgo.NewToolResultError(err.Error()), nil
@@ -441,6 +462,9 @@ func (a *toolGroupArgs) applyTo(group *model.ToolGroup) error {
 		{a.IncludedTools, &group.IncludedTools},
 		{a.IncludedServers, &group.IncludedServers},
 		{a.ExcludedTools, &group.ExcludedTools},
+		{a.IncludedPrompts, &group.IncludedPrompts},
+		{a.IncludedResources, &group.IncludedResources},
+		{a.IncludedSkills, &group.IncludedSkills},
 	} {
 		if field.value == nil {
 			continue
@@ -471,14 +495,29 @@ func newToolGroupView(g *model.ToolGroup) (*toolGroupView, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read excluded tools of group %s: %w", g.Name, err)
 	}
+	prompts, err := g.GetPrompts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read included prompts of group %s: %w", g.Name, err)
+	}
+	resources, err := g.GetResources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read included resources of group %s: %w", g.Name, err)
+	}
+	skills, err := g.GetSkills()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read included skills of group %s: %w", g.Name, err)
+	}
 	base := "/v0/groups/" + g.Name
 	return &toolGroupView{
 		ToolGroup: &types.ToolGroup{
-			Name:            g.Name,
-			Description:     g.Description,
-			IncludedTools:   tools,
-			IncludedServers: servers,
-			ExcludedTools:   excluded,
+			Name:              g.Name,
+			Description:       g.Description,
+			IncludedTools:     tools,
+			IncludedServers:   servers,
+			ExcludedTools:     excluded,
+			IncludedPrompts:   prompts,
+			IncludedResources: resources,
+			IncludedSkills:    skills,
 		},
 		Endpoints: toolGroupEndpoints{StreamableHTTP: base + "/mcp", SSE: base + "/sse"},
 	}, nil

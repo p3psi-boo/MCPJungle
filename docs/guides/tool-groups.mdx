@@ -1,17 +1,17 @@
 ---
-title: "Tool Groups"
-description: "Expose only a subset of all tools to clients over dedicated MCP endpoints."
+title: "Groups"
+description: "Expose a curated subset of tools, prompts, resources, and skills to clients over dedicated MCP endpoints."
 ---
 
-As more MCP servers are added to mcpjungle, the number of tools, prompts and resources available through the gateway mcp endpoint can quickly explode.
+As more MCP servers are added to mcpjungle, the number of tools, prompts, resources, and skills available through the gateway MCP endpoint can quickly explode.
 
 This can cause context overload for your clients.
 
-Mcpjungle allows you to create custom MCP endpoints that only expose cherry-picked tools to clients. These are called **Tool Groups**.
+Mcpjungle lets you create custom MCP endpoints that only expose the items you pick. These are called **Groups**.
 
-Your client can then connect to the specific group endpoint instead of the main `/mcp` gateway and only see tools you want to expose to it.
+Your client can then connect to the specific group endpoint instead of the main `/mcp` gateway and only see the capabilities you want to expose.
 
-## How tool groups work
+## How groups work
 
 When you create a group, Mcpjungle registers a new streamable HTTP endpoint at:
 
@@ -19,7 +19,7 @@ When you create a group, Mcpjungle registers a new streamable HTTP endpoint at:
 /v0/groups/{group-name}/mcp
 ```
 
-Point your MCP client at that URL instead of the main gateway. The client will only discover and call the tools included in that group.
+Point your MCP client at that URL instead of the main gateway. The client will only discover and call the tools, prompts, resources, and skills included in that group.
 
 Mcpjungle also creates SSE endpoints for the group:
 
@@ -33,14 +33,14 @@ Mcpjungle also creates SSE endpoints for the group:
 </Warning>
 
 <Note>
-  If a tool included in a group is later disabled globally or deregistered, it becomes unavailable through the group endpoint automatically. Re-enabling or re-registering the tool makes it available again without any changes to the group configuration.
+  If an item included in a group is later disabled globally or deregistered, it becomes unavailable through the group endpoint automatically. Re-enabling or re-registering the item makes it available again without any changes to the group configuration.
 </Note>
 
 ## Configuration
 
-On the dashboard, open **Tool Groups** and click **+ Add Tool Group**. Give the group a name, pick the tools to include, and save. The group gets a dedicated MCP endpoint immediately.
+On the dashboard, open **Groups** and click **+ Add Group**. Give the group a name, then pick individual tools, prompts, resources, and skills. Selection is per item: choosing a tool from a server does not pull in the rest of that server.
 
-The HTTP API accepts the same fields. Three of them control which tools are included:
+The HTTP API and CLI accept the same fields. A group is valid when it resolves to at least one tool, prompt, resource, or skill.
 
 | Field | Type | Description |
 |---|---|---|
@@ -49,112 +49,121 @@ The HTTP API accepts the same fields. Three of them control which tools are incl
 | `included_tools` | string[] | Canonical tool names to include individually. |
 | `included_servers` | string[] | Include all tools from these MCP servers. |
 | `excluded_tools` | string[] | Remove specific tools from the resolved set (applied last). |
+| `included_prompts` | string[] | Canonical prompt names to include individually. |
+| `included_resources` | string[] | Resource URIs to include individually. |
+| `included_skills` | string[] | Agent Skill names to include individually. |
 
 <Warning>
   Exclusion is always applied after inclusion. If a tool appears in both `included_tools` and `excluded_tools`, it will be excluded from the final group.
 </Warning>
 
+The dashboard never uses `included_servers`. It only stores the specific items you select. `included_servers` remains available on the API, CLI, and management tools for bulk tool inclusion.
+
 ## Configuration approaches
 
 <Tabs>
-  <Tab title="Cherry-pick specific tools">
-    Use `included_tools` to handpick exactly which tools to expose. Tool names follow the canonical format `<server-name>__<tool-name>`.
+  <Tab title="Cherry-pick specific items">
+    Use the per-item fields to handpick exactly which capabilities to expose. Tool and prompt names follow the canonical format `<server-name>__<name>`. Resources use the gateway URI. Skills use their skill name.
 
-    ```json claude-tools-group.json
+    ```json claude-group.json
     {
-      "name": "claude-tools",
-      "description": "This group only contains tools for Claude Desktop to use",
+      "name": "claude",
+      "description": "Capabilities for Claude Desktop",
       "included_tools": [
         "filesystem__read_file",
         "deepwiki__read_wiki_contents",
         "time__get_current_time"
-      ]
+      ],
+      "included_prompts": ["github__code_review"],
+      "included_resources": ["mcpj://res/docs/abc"],
+      "included_skills": ["pdf"]
     }
     ```
 
-    This group exposes exactly three tools regardless of how many tools are registered in Mcpjungle.
+    This group exposes only those selected items, not every tool from the same servers.
 
     <Tip>
-      Open the **Tools** page in the dashboard to see all available tool names before building a group.
+      Open the **Tools**, **Prompts**, **Resources**, and **Skills** pages in the dashboard to see available names before building a group.
     </Tip>
   </Tab>
   <Tab title="Include entire servers">
-    Use `included_servers` to pull in all tools from one or more servers. Combine with `excluded_tools` to remove specific tools you don't want to expose.
+    Use `included_servers` to pull in all tools from one or more servers. Combine with `excluded_tools` to remove specific tools you don't want to expose. Prompts, resources, and skills are still selected individually.
 
-    ```json claude-tools-group.json
+    ```json claude-group.json
     {
-      "name": "claude-tools",
+      "name": "claude",
       "description": "All tools from time and deepwiki servers except time__convert_time",
       "included_servers": ["time", "deepwiki"],
-      "excluded_tools": ["time__convert_time"]
+      "excluded_tools": ["time__convert_time"],
+      "included_prompts": ["time__current"]
     }
     ```
 
-    This includes every tool from the `time` and `deepwiki` servers, then removes `time__convert_time` from the result.
+    This includes every tool from the `time` and `deepwiki` servers, then removes `time__convert_time`, and adds one prompt.
   </Tab>
   <Tab title="Mix both approaches">
-    Combine `included_tools`, `included_servers`, and `excluded_tools` for maximum flexibility.
+    Combine `included_tools`, `included_servers`, and `excluded_tools` for tools, plus the per-item lists for prompts, resources, and skills.
 
-    ```json comprehensive-tools-group.json
+    ```json comprehensive-group.json
     {
-      "name": "comprehensive-tools",
-      "description": "Mix of manual tools, server inclusion, and exclusions",
+      "name": "comprehensive",
+      "description": "Mix of manual tools, server inclusion, and other item types",
       "included_tools": ["filesystem__read_file"],
       "included_servers": ["time"],
-      "excluded_tools": ["time__convert_time"]
+      "excluded_tools": ["time__convert_time"],
+      "included_skills": ["pdf"]
     }
     ```
 
-    This adds `filesystem__read_file` explicitly, then includes all tools from the `time` server, then removes `time__convert_time`. Exclusion runs last regardless of the order fields appear in the file.
+    This adds `filesystem__read_file` explicitly, then includes all tools from the `time` server, then removes `time__convert_time`, and exposes the `pdf` skill.
   </Tab>
 </Tabs>
 
 ## Creating a group
 
-1. Open the dashboard and go to **Tool Groups**.
-2. Click **+ Add Tool Group**.
-3. Enter a name and description, then select the tools to include.
-4. Click **+ Add Tool Group** to save.
+1. Open the dashboard and go to **Groups**.
+2. Click **+ Add Group**.
+3. Enter a name and description, then select individual tools, prompts, resources, and skills.
+4. Click **+ Add Group** to save.
 
 The group row shows its streamable HTTP endpoint, for example:
 
 ```
-http://127.0.0.1:8080/v0/groups/claude-tools/mcp
+http://127.0.0.1:8080/v0/groups/claude/mcp
 ```
 
 SSE endpoints are also available at `/v0/groups/{group-name}/sse` and `/v0/groups/{group-name}/message`.
 
-Configure your MCP client to connect to that URL instead of `http://127.0.0.1:8080/mcp`. The client will only see the tools in the group.
+Configure your MCP client to connect to that URL instead of `http://127.0.0.1:8080/mcp`. The client will only see the items in the group.
 
-This is the recommended pattern whenever a single client should use a curated tool set rather than the whole gateway.
+This is the recommended pattern whenever a single client should use a curated set of capabilities rather than the whole gateway.
 
 ## Managing groups
 
 <Steps>
   <Step title="List all groups">
-    Open **Tool Groups** in the dashboard. Each row shows the group name, tool count, and description.
+    Open **Groups** in the dashboard. Each row shows the group name, item counts, and description.
   </Step>
   <Step title="Inspect a specific group">
-    Expand a group row to see its MCP endpoint URLs and the tools it includes.
+    Expand a group row to see its MCP endpoint URLs and the tools, prompts, resources, and skills it includes.
   </Step>
   <Step title="Delete a group">
     Use the delete action on the group row.
 
-    Deleting a group removes its endpoint. Make sure no MCP clients are connected to that endpoint before you delete it. The tools themselves are not deleted — only the group configuration.
+    Deleting a group removes its endpoint. Make sure no MCP clients are connected to that endpoint before you delete it. The underlying tools, prompts, resources, and skills are not deleted — only the group configuration.
   </Step>
 </Steps>
 
-## Working with tools inside a group
+## Working with items inside a group
 
-Expand a group in the dashboard to confirm which tools it exposes before pointing a client at the group endpoint. Then connect the client to `/v0/groups/{group-name}/mcp` and ask it to list or call those tools.
+Expand a group in the dashboard to confirm which items it exposes before pointing a client at the group endpoint. Then connect the client to `/v0/groups/{group-name}/mcp` and ask it to list or call those tools, prompts, resources, or skills.
+
+When a group includes skills, the group endpoint also exposes the skill tools (`skills__list_skills`, `skills__get_skill`, `skills__read_skill_file`) filtered so they only see the selected skills, plus one prompt per selected skill.
 
 ## Known limitations
 
 <AccordionGroup>
-  <Accordion title="Prompts & Resources are currently not supported in Tool Groups">
-    [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) and Resources are not currently available through group endpoints. Clients connected to a group endpoint cannot discover or invoke prompts. This is a known issue tracked at [mcpjungle#136](https://github.com/mcpjungle/MCPJungle/issues/136).
-  </Accordion>
   <Accordion title="Enterprise mode: only admins can create groups">
-    When Mcpjungle runs in `enterprise` mode, only an admin account can create Tool Groups. Standard users do not have permission to create groups. Support for user-scoped groups is planned for a future release.
+    When Mcpjungle runs in `enterprise` mode, only an admin account can create Groups. Standard users do not have permission to create groups. Support for user-scoped groups is planned for a future release.
   </Accordion>
 </AccordionGroup>

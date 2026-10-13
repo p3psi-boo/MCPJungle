@@ -110,11 +110,11 @@ Replace `YOUR_ACCESS_TOKEN` with the token printed by `mcpjungle create mcp-clie
   In enterprise mode, a client can only see and call tools from the servers it was explicitly granted access to. If Claude reports no tools available, verify that the `--allow` flag included the correct server names when you created the client.
 </Warning>
 
-## Limit tools with Tool Groups
+## Limit tools with Groups
 
 As you register more MCP servers, the total number of tools visible to Claude can grow large. Too many tools can degrade Claude's response quality and increase latency.
 
-Use [Tool Groups](/guides/tool-groups) to create a curated subset of tools and point Claude at the group-specific endpoint instead of the main gateway:
+Use [Groups](/guides/tool-groups) to create a curated subset of tools, prompts, resources, and skills and point Claude at the group-specific endpoint instead of the main gateway:
 
 ```json
 {

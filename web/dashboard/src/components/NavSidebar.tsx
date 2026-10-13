@@ -3,7 +3,7 @@ import type { AppSection } from "@/lib/types";
 const items: Array<{ key: AppSection; label: string }> = [
   { key: "servers", label: "Servers" },
   { key: "tools", label: "Tools" },
-  { key: "tool_groups", label: "Tool Groups" },
+  { key: "tool_groups", label: "Groups" },
   { key: "prompts", label: "Prompts" },
   { key: "resources", label: "Resources" },
   { key: "skills", label: "Skills" },

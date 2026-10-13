@@ -19,13 +19,13 @@ var updateCmd = &cobra.Command{
 
 var updateToolGroupCmd = &cobra.Command{
 	Use:   "group",
-	Short: "Update a tool group",
-	Long: "Update an existing Tool Group\n" +
-		"This option allows you to supply the modified configuration file of an existing Tool group.\n" +
+	Short: "Update a group",
+	Long: "Update an existing Group\n" +
+		"This option allows you to supply the modified configuration file of an existing group.\n" +
 		"The new configuration completely overrides the existing one.\n" +
 		"Note that you cannot update the name of a group once it is created.\n" +
 		"Updating a group does not cause any downtime for the MCP clients relying on its endpoint.\n\n" +
-		"CAUTION: If you remove any tools from the configuration (by removing them from include or adding them to exclude), " +
+		"CAUTION: If you remove any tools, prompts, resources, or skills from the configuration, " +
 		"calling update will immediately remove them from the group. " +
 		"They will no longer be accessible by MCP clients using the group's MCP server.",
 	RunE: runUpdateGroup,
@@ -106,17 +106,24 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 	toolsAdded, toolsRemoved := util.DiffTools(resp.Old.IncludedTools, resp.New.IncludedTools)
 	serversAdded, serversRemoved := util.DiffTools(resp.Old.IncludedServers, resp.New.IncludedServers)
 	excludedAdded, excludedRemoved := util.DiffTools(resp.Old.ExcludedTools, resp.New.ExcludedTools)
+	promptsAdded, promptsRemoved := util.DiffTools(resp.Old.IncludedPrompts, resp.New.IncludedPrompts)
+	resourcesAdded, resourcesRemoved := util.DiffTools(resp.Old.IncludedResources, resp.New.IncludedResources)
+	skillsAdded, skillsRemoved := util.DiffTools(resp.Old.IncludedSkills, resp.New.IncludedSkills)
 
 	noChangeInTools := len(toolsAdded) == 0 && len(toolsRemoved) == 0
 	noChangeInServers := len(serversAdded) == 0 && len(serversRemoved) == 0
 	noChangeInExcluded := len(excludedAdded) == 0 && len(excludedRemoved) == 0
+	noChangeInPrompts := len(promptsAdded) == 0 && len(promptsRemoved) == 0
+	noChangeInResources := len(resourcesAdded) == 0 && len(resourcesRemoved) == 0
+	noChangeInSkills := len(skillsAdded) == 0 && len(skillsRemoved) == 0
 
-	if resp.Old.Description == resp.New.Description && noChangeInTools && noChangeInServers && noChangeInExcluded {
-		cmd.Printf("No changes detected for Tool Group %s. Nothing was updated.\n", resp.Name)
+	if resp.Old.Description == resp.New.Description && noChangeInTools && noChangeInServers &&
+		noChangeInExcluded && noChangeInPrompts && noChangeInResources && noChangeInSkills {
+		cmd.Printf("No changes detected for Group %s. Nothing was updated.\n", resp.Name)
 		return nil
 	}
 
-	cmd.Printf("Tool Group %s updated successfully\n\n", resp.Name)
+	cmd.Printf("Group %s updated successfully\n\n", resp.Name)
 
 	if resp.Old.Description != resp.New.Description {
 		cmd.Printf("* Description updated from:\n    %s\nto:\n    %s\n\n", resp.Old.Description, resp.New.Description)
@@ -175,7 +182,30 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 		cmd.Println()
 	}
 
+	reportListDiff(cmd, "included_prompts", promptsAdded, promptsRemoved, noChangeInPrompts)
+	reportListDiff(cmd, "included_resources", resourcesAdded, resourcesRemoved, noChangeInResources)
+	reportListDiff(cmd, "included_skills", skillsAdded, skillsRemoved, noChangeInSkills)
+
 	return nil
+}
+
+func reportListDiff(cmd *cobra.Command, field string, added, removed []string, noChange bool) {
+	if noChange {
+		return
+	}
+	if len(removed) > 0 {
+		cmd.Printf("* Items removed from %s:\n", field)
+		for _, item := range removed {
+			cmd.Printf("    - %s\n", item)
+		}
+	}
+	if len(added) > 0 {
+		cmd.Printf("* Items added to %s:\n", field)
+		for _, item := range added {
+			cmd.Printf("    + %s\n", item)
+		}
+	}
+	cmd.Println()
 }
 
 func runUpdateMcpClient(cmd *cobra.Command, args []string) error {

@@ -43,7 +43,7 @@ MCPJungle gives you a single control point:
 - 🌐 One MCP endpoint for Claude, Cursor, Copilot, and custom agents
 - 🗂️ One place to register and manage MCP servers
 - 🔎 Unified discovery for tools, prompts, and resources
-- 🎛️ Optional tool groups to expose only the tools a client should see
+- 🎛️ Optional groups to expose only the tools, prompts, resources, and skills a client should see
 - 📊 Simple access-control and observability hooks for shared deployments
 
 Start with a local setup. Scale to a shared team gateway when you need it.
@@ -143,7 +143,7 @@ Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mc
   - [Connect to mcpjungle from Copilot](#copilot)
   - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
   - [Prompts](#prompts)
-  - [Tool Groups](#tool-groups)
+  - [Groups](#groups)
   - [Authentication](#authentication)
   - [Enterprise features](#enterprise-features-)
     - [Access Control](#access-control)
@@ -616,7 +616,7 @@ Your mcp.json config file should look like this after adding mcpjungle to it:
 ## Enabling/Disabling Tools
 You can disable and re-enable a specific tool or all the tools provided by an MCP Server.
 
-If a tool is disabled, it is not available via the MCPJungle Proxy or any of the Tool Groups, so no MCP clients can view or call it.
+If a tool is disabled, it is not available via the MCPJungle Proxy or any of the Groups, so no MCP clients can view or call it.
 
 You can disable and enable Prompts as well.
 
@@ -662,26 +662,29 @@ $ mcpjungle list prompts --server huggingface
 $ mcpjungle get prompt "huggingface__Model Details" --arg model_id="openai/gpt-oss-120b"
 ```
 
-## Tool Groups
-As you add more MCP servers to MCPJungle, the number of tools available through the Gateway can grow significantly.
+## Groups
+As you add more MCP servers to MCPJungle, the number of tools, prompts, resources, and skills available through the Gateway can grow significantly.
 
-If your MCP client is exposed to hundreds of tools through the gateway MCP, its performance may degrade.
+If your MCP client is exposed to hundreds of items through the gateway MCP, its performance may degrade.
 
-MCPJungle allows you to **expose only a subset of all available tools to your MCP clients using Tool Groups**.
+MCPJungle allows you to **expose only a subset of available tools, prompts, resources, and skills using Groups**.
 
-You can create a new group and only include specific tools that you wish to expose.
+You can create a new group and pick specific items. Tool selection is per tool: including `filesystem__read_file` does not include the rest of the filesystem server.
 
 Once a group is created, mcpjungle returns a unique endpoint for it.
 
 You can then configure your MCP client to use this group-specific endpoint instead of the main gateway endpoint.
 
-### Creating a Tool Group
-You can create a new tool group by providing a JSON configuration file to the `create group` command.
+### Creating a Group
+You can create a new group by providing a JSON configuration file to the `create group` command.
 
-You must specify a unique `name` for the group and define which tools to include using one or more of the following fields:
+You must specify a unique `name` for the group and define which items to include using one or more of the following fields:
 - **`included_tools`**: List specific tool names to include (e.g., `["filesystem__read_file", "time__get_current_time"]`)
 - **`included_servers`**: Include ALL tools from specific MCP servers (e.g., `["time", "deepwiki"]`)
 - **`excluded_tools`**: Exclude specific tools (useful when including entire servers)
+- **`included_prompts`**: List specific prompt names to include
+- **`included_resources`**: List specific resource URIs to include
+- **`included_skills`**: List specific Agent Skill names to include
 
 #### Example 1: Cherry-picking specific tools
 Here is an example of a tool group configuration file (`claude-tools-group.json`):
@@ -697,7 +700,7 @@ Here is an example of a tool group configuration file (`claude-tools-group.json`
 }
 ```
 
-This group exposes only 3 handpicked tools instead of all available tools.
+This group exposes only 3 handpicked tools instead of all available tools from those servers.
 
 #### Example 2: Including entire servers with exclusions
 You can also include all tools from specific servers and optionally exclude some:
@@ -730,7 +733,7 @@ You can create this group in mcpjungle:
 ```bash
 $ mcpjungle create group -c ./claude-tools-group.json
 
-Tool Group claude-tools created successfully
+Group claude-tools created successfully
 It is now accessible at the following streamable http endpoint:
 
     http://127.0.0.1:8080/v0/groups/claude-tools/mcp
@@ -750,14 +753,11 @@ You can also watch a [Video on using Tool Groups](https://youtu.be/A21rfGgo38A).
 > The exclusion is always applied at the end.
 > So if you add a tool to `included_tools` and also list it in `excluded_tools`, it will be excluded from the final group.
 
-#### Limitation 🚧
-[Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) are currently not supported in Tool Groups. We're working to fix this [issue](https://github.com/mcpjungle/MCPJungle/issues/136) 🛠️
-
-### Managing tool groups
+### Managing groups
 You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.
 
 ```bash
-# list all tool groups
+# list all groups
 mcpjungle list groups
 
 # view details of a specific group

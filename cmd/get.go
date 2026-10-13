@@ -14,7 +14,7 @@ import (
 
 var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get entities like Prompts and Tool Groups",
+	Short: "Get entities like Prompts and Groups",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
 		"order": "1",
@@ -29,9 +29,9 @@ var (
 var getGroupCmd = &cobra.Command{
 	Use:   "group [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Get information about a specific Tool Group",
-	Long: "Get information about a specific Tool Group by name.\n" +
-		"This returns the configuration of the Tool Group including which tools are included.\n",
+	Short: "Get information about a specific Group",
+	Long: "Get information about a specific Group by name.\n" +
+		"This returns the configuration of the Group including which tools, prompts, resources, and skills are included.\n",
 	RunE: runGetGroup,
 }
 
@@ -132,8 +132,12 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Println()
 
+	printNamedList(cmd, "Included Prompts", group.IncludedPrompts)
+	printNamedList(cmd, "Included Resources", group.IncludedResources)
+	printNamedList(cmd, "Included Skills", group.IncludedSkills)
+
 	cmd.Println(
-		"NOTE: If a tool in this group is disabled globally or has been deleted, " +
+		"NOTE: If an item in this group is disabled globally or has been deleted, " +
 			"then it will not be available via the group's MCP endpoint.",
 	)
 
@@ -253,4 +257,16 @@ func runGetResourceRead(cmd *cobra.Command, resource *types.Resource) error {
 	}
 
 	return nil
+}
+
+func printNamedList(cmd *cobra.Command, title string, items []string) {
+	if len(items) == 0 {
+		cmd.Printf("%s: None\n\n", title)
+		return
+	}
+	cmd.Printf("%s:\n", title)
+	for i, item := range items {
+		cmd.Printf("%d. %s\n", i+1, item)
+	}
+	cmd.Println()
 }

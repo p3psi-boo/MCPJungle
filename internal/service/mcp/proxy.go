@@ -83,6 +83,11 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	return res, err
 }
 
+// MCPProxyResourceCallHandler is the exported resource-read handler used by group MCP servers.
+func (m *MCPService) MCPProxyResourceCallHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	return m.mcpProxyResourceHandler(ctx, request)
+}
+
 // mcpProxyResourceHandler handles resource reads for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
@@ -115,6 +120,11 @@ func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.Re
 	}
 
 	return rewriteResourceContentsURI(res.Contents, resource.URI), nil
+}
+
+// MCPProxyPromptCallHandler is the exported prompt handler used by group MCP servers.
+func (m *MCPService) MCPProxyPromptCallHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return m.mcpProxyPromptHandler(ctx, request)
 }
 
 // mcpProxyPromptHandler handles prompt requests for the MCP proxy server

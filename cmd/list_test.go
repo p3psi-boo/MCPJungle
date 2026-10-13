@@ -71,7 +71,7 @@ func TestListUsersSubcommand(t *testing.T) {
 func TestListGroupsSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "groups", listGroupsCmd.Use)
-	testhelpers.AssertEqual(t, "List tool groups", listGroupsCmd.Short)
+	testhelpers.AssertEqual(t, "List groups", listGroupsCmd.Short)
 
 	// Test command functions
 	testhelpers.AssertNotNil(t, listGroupsCmd.RunE)

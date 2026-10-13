@@ -1,11 +1,11 @@
 ---
-title: "Managing tool groups"
-description: "Reference for creating, inspecting, updating, and deleting tool groups from the mcpjungle CLI."
+title: "Managing groups"
+description: "Reference for creating, inspecting, updating, and deleting groups from the mcpjungle CLI."
 ---
 
-Tool groups let you expose a curated subset of tools through their own MCP endpoint. They are useful when different agents or teams should only see a narrow tool surface instead of the full gateway.
+Groups let you expose a curated subset of tools, prompts, resources, and skills through their own MCP endpoint. They are useful when different agents or teams should only see a narrow surface instead of the full gateway.
 
-For the conceptual model and endpoint behavior, see [Tool groups](/guides/tool-groups).
+For the conceptual model and endpoint behavior, see [Groups](/guides/tool-groups).
 
 <Note>
   Treat `mcpjungle create group --help`, `get group --help`, and `update group --help` as the authoritative source for current flags. This page focuses on the important workflows and config shape.
@@ -13,7 +13,7 @@ For the conceptual model and endpoint behavior, see [Tool groups](/guides/tool-g
 
 ## `create group`
 
-Creates a new tool group from a JSON configuration file.
+Creates a new group from a JSON configuration file.
 
 ```bash
 mcpjungle create group --conf <file>
@@ -45,6 +45,11 @@ Fields:
 - `included_tools`: explicit tool names to include
 - `included_servers`: include all tools from these servers
 - `excluded_tools`: remove individual tools from the final set
+- `included_prompts`: explicit prompt names to include
+- `included_resources`: explicit resource URIs to include
+- `included_skills`: explicit Agent Skill names to include
+
+A group must resolve to at least one tool, prompt, resource, or skill.
 
 Example:
 
@@ -96,10 +101,10 @@ Example:
 mcpjungle update group --conf ./engineering-tools.updated.json
 ```
 
-The CLI reports what changed, including added or removed tools, servers, and exclusions.
+The CLI reports what changed, including added or removed tools, servers, exclusions, prompts, resources, and skills.
 
 <Warning>
-  Updating a group takes effect immediately. Any tools removed from the configuration stop being available through that group's endpoint right away.
+  Updating a group takes effect immediately. Any items removed from the configuration stop being available through that group's endpoint right away.
 </Warning>
 
 ## `delete group`
@@ -137,4 +142,4 @@ mcpjungle invoke github__create_issue \
   --group engineering-tools
 ```
 
-Use [Tool groups](/guides/tool-groups) for the higher-level workflow and operational guidance.
+Use [Groups](/guides/tool-groups) for the higher-level workflow and operational guidance.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/skills"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
@@ -34,6 +35,9 @@ const (
 
 	skillPromptTaskArg = "task"
 )
+
+// SkillChangeCallback is called after the skill catalog on the proxy servers is refreshed.
+type SkillChangeCallback func()
 
 type skillSummary struct {
 	Name        string `json:"name"`
@@ -111,6 +115,75 @@ func (m *MCPService) syncSkills() {
 		m.sseMcpProxyServer.DeletePrompts(stale...)
 	}
 	m.skillPromptNames = current
+	if m.skillChangeCallback != nil {
+		m.skillChangeCallback()
+	}
+}
+
+// SetSkillChangeCallback registers a callback invoked after skills are added, updated or removed.
+func (m *MCPService) SetSkillChangeCallback(callback SkillChangeCallback) {
+	m.skillChangeCallback = callback
+}
+
+// SkillPromptName returns the canonical MCP prompt name for a skill.
+func SkillPromptName(skillName string) string {
+	return mergeServerPromptNames(SkillsServerName, skillName)
+}
+
+// SkillToolNames returns the canonical names of the built-in skill tools.
+func SkillToolNames() []string {
+	return []string{
+		mergeServerToolNames(SkillsServerName, skillsListToolName),
+		mergeServerToolNames(SkillsServerName, skillsGetToolName),
+		mergeServerToolNames(SkillsServerName, skillsReadFileToolName),
+	}
+}
+
+// AttachSkillsToServer exposes the selected skills on an MCP server: one prompt per skill
+// plus the three skill tools, filtered so they only see those skills.
+func (m *MCPService) AttachSkillsToServer(srv *server.MCPServer, skillNames []string) error {
+	if m.skillStore == nil {
+		if len(skillNames) > 0 {
+			return fmt.Errorf("skills are not enabled: %w", apierrors.ErrInvalidInput)
+		}
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(skillNames))
+	for _, name := range skillNames {
+		sk, err := m.skillStore.Get(name)
+		if err != nil {
+			return fmt.Errorf("skill %s does not exist: %w", name, apierrors.ErrInvalidInput)
+		}
+		allowed[name] = struct{}{}
+		prompt := mcp.NewPrompt(
+			SkillPromptName(sk.Name),
+			mcp.WithPromptDescription(sk.Description),
+			mcp.WithArgument(
+				skillPromptTaskArg,
+				mcp.ArgumentDescription("Optional description of the task to accomplish using this skill"),
+			),
+		)
+		srv.AddPrompt(prompt, m.skillPromptHandler)
+	}
+	if len(skillNames) > 0 {
+		for _, t := range m.skillToolsFor(allowed) {
+			srv.AddTool(t.tool, t.handler)
+		}
+	}
+	return nil
+}
+
+// DetachSkillsFromServer removes skill prompts and the shared skill tools from an MCP server.
+func (m *MCPService) DetachSkillsFromServer(srv *server.MCPServer, skillNames []string) {
+	if len(skillNames) == 0 {
+		return
+	}
+	prompts := make([]string, 0, len(skillNames))
+	for _, name := range skillNames {
+		prompts = append(prompts, SkillPromptName(name))
+	}
+	srv.DeletePrompts(prompts...)
+	srv.DeleteTools(SkillToolNames()...)
 }
 
 // SkillStore returns the skill store, or nil if skills are not enabled.
@@ -130,6 +203,10 @@ type skillTool struct {
 }
 
 func (m *MCPService) skillTools() []skillTool {
+	return m.skillToolsFor(nil)
+}
+
+func (m *MCPService) skillToolsFor(allowed map[string]struct{}) []skillTool {
 	return []skillTool{
 		{
 			tool: mcp.NewTool(
@@ -144,18 +221,18 @@ func (m *MCPService) skillTools() []skillTool {
 				mcp.WithDestructiveHintAnnotation(false),
 				mcp.WithOpenWorldHintAnnotation(false),
 			),
-			handler: m.withSkillToolMetrics(skillsListToolName, m.handleListSkills),
+			handler: m.withSkillToolMetrics(skillsListToolName, m.handleListSkillsFiltered(allowed)),
 		},
 		{
 			tool: mcp.NewTool(
 				mergeServerToolNames(SkillsServerName, skillsGetToolName),
-				mcp.WithDescription(m.getSkillToolDescription()),
+				mcp.WithDescription(m.getSkillToolDescriptionFiltered(allowed)),
 				mcp.WithString("name", mcp.Required(), mcp.Description("Name of the skill to load")),
 				mcp.WithReadOnlyHintAnnotation(true),
 				mcp.WithDestructiveHintAnnotation(false),
 				mcp.WithOpenWorldHintAnnotation(false),
 			),
-			handler: m.withSkillToolMetrics(skillsGetToolName, m.handleGetSkill),
+			handler: m.withSkillToolMetrics(skillsGetToolName, m.handleGetSkillFiltered(allowed)),
 		},
 		{
 			tool: mcp.NewTool(
@@ -175,20 +252,46 @@ func (m *MCPService) skillTools() []skillTool {
 				mcp.WithDestructiveHintAnnotation(false),
 				mcp.WithOpenWorldHintAnnotation(false),
 			),
-			handler: m.withSkillToolMetrics(skillsReadFileToolName, m.handleReadSkillFile),
+			handler: m.withSkillToolMetrics(skillsReadFileToolName, m.handleReadSkillFileFiltered(allowed)),
 		},
 	}
+}
+
+func skillAllowed(allowed map[string]struct{}, name string) bool {
+	if allowed == nil {
+		return true
+	}
+	_, ok := allowed[name]
+	return ok
+}
+
+func (m *MCPService) listedSkills(allowed map[string]struct{}) []skills.Skill {
+	list := m.skillStore.List()
+	if allowed == nil {
+		return list
+	}
+	filtered := make([]skills.Skill, 0, len(allowed))
+	for _, sk := range list {
+		if skillAllowed(allowed, sk.Name) {
+			filtered = append(filtered, sk)
+		}
+	}
+	return filtered
 }
 
 // getSkillToolDescription embeds the skill catalog in the tool description so that clients
 // discover available skills from tools/list alone, without an extra round trip.
 func (m *MCPService) getSkillToolDescription() string {
+	return m.getSkillToolDescriptionFiltered(nil)
+}
+
+func (m *MCPService) getSkillToolDescriptionFiltered(allowed map[string]struct{}) string {
 	var b strings.Builder
 	b.WriteString(
 		"Load the full instructions of an Agent Skill, along with the list of files bundled with it. " +
 			"Use this before working on a task that matches one of the skills below, then follow the instructions.",
 	)
-	list := m.skillStore.List()
+	list := m.listedSkills(allowed)
 	if len(list) == 0 {
 		b.WriteString("\n\nNo skills are currently available.")
 		return b.String()
@@ -220,48 +323,72 @@ func (m *MCPService) withSkillToolMetrics(
 }
 
 func (m *MCPService) handleListSkills(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	list := m.skillStore.List()
-	result := listSkillsResult{Skills: make([]skillSummary, len(list))}
-	for i, sk := range list {
-		result.Skills[i] = skillSummary{Name: sk.Name, Description: sk.Description}
+	return m.handleListSkillsFiltered(nil)(context.Background(), mcp.CallToolRequest{})
+}
+
+func (m *MCPService) handleListSkillsFiltered(allowed map[string]struct{}) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		list := m.listedSkills(allowed)
+		result := listSkillsResult{Skills: make([]skillSummary, len(list))}
+		for i, sk := range list {
+			result.Skills[i] = skillSummary{Name: sk.Name, Description: sk.Description}
+		}
+		return mcp.NewToolResultJSON(result)
 	}
-	return mcp.NewToolResultJSON(result)
 }
 
 func (m *MCPService) handleGetSkill(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	name, err := request.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	return m.handleGetSkillFiltered(nil)(context.Background(), request)
+}
+
+func (m *MCPService) handleGetSkillFiltered(allowed map[string]struct{}) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		name, err := request.RequireString("name")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if !skillAllowed(allowed, name) {
+			return mcp.NewToolResultError(fmt.Sprintf("skill %q is not available in this group", name)), nil
+		}
+		sk, err := m.skillStore.Get(name)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := renderSkill(sk)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(text), nil
 	}
-	sk, err := m.skillStore.Get(name)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	text, err := renderSkill(sk)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	return mcp.NewToolResultText(text), nil
 }
 
 func (m *MCPService) handleReadSkillFile(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	name, err := request.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	return m.handleReadSkillFileFiltered(nil)(context.Background(), request)
+}
+
+func (m *MCPService) handleReadSkillFileFiltered(allowed map[string]struct{}) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		name, err := request.RequireString("name")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if !skillAllowed(allowed, name) {
+			return mcp.NewToolResultError(fmt.Sprintf("skill %q is not available in this group", name)), nil
+		}
+		path, err := request.RequireString("path")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		sk, err := m.skillStore.Get(name)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		content, err := sk.ReadFile(path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(content), nil
 	}
-	path, err := request.RequireString("path")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	sk, err := m.skillStore.Get(name)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	content, err := sk.ReadFile(path)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	return mcp.NewToolResultText(content), nil
 }
 
 func (m *MCPService) skillPromptHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
