@@ -82,6 +82,22 @@ func TestStartCommandFlags(t *testing.T) {
 			t.Error("prod flag should have usage description")
 		}
 	})
+
+	t.Run("start command has skills-dir flag", func(t *testing.T) {
+		if skillsDirFlag := startServerCmd.Flags().Lookup("skills-dir"); skillsDirFlag == nil {
+			t.Fatal("Start command missing 'skills-dir' flag")
+		} else if skillsDirFlag.Usage == "" {
+			t.Error("skills-dir flag should have usage description")
+		}
+	})
+
+	t.Run("start command has skills-install-dir flag", func(t *testing.T) {
+		if installDirFlag := startServerCmd.Flags().Lookup("skills-install-dir"); installDirFlag == nil {
+			t.Fatal("Start command missing 'skills-install-dir' flag")
+		} else if installDirFlag.Usage == "" {
+			t.Error("skills-install-dir flag should have usage description")
+		}
+	})
 }
 
 func withBindHostFlag(t *testing.T, value string, changed bool, fn func()) {
@@ -103,6 +119,91 @@ func withBindHostFlag(t *testing.T, value string, changed bool, fn func()) {
 	}()
 
 	fn()
+}
+
+func withSkillsInstallConfig(t *testing.T, flag string, dirs []string, fn func()) {
+	t.Helper()
+	originalFlag := startServerCmdSkillsInstallDir
+	originalDirs := startServerCmdSkillsDirs
+	startServerCmdSkillsInstallDir = flag
+	startServerCmdSkillsDirs = dirs
+	t.Cleanup(func() {
+		startServerCmdSkillsInstallDir = originalFlag
+		startServerCmdSkillsDirs = originalDirs
+	})
+	fn()
+}
+
+func TestGetSkillsInstallDir(t *testing.T) {
+	t.Run("defaults to ./skills when nothing is set", func(t *testing.T) {
+		withSkillsInstallConfig(t, "", nil, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != DefaultSkillsInstallDir {
+					t.Fatalf("expected default install dir %q, got %q", DefaultSkillsInstallDir, got)
+				}
+			})
+		})
+	})
+
+	t.Run("none disables the default when no skills-dir is set", func(t *testing.T) {
+		withSkillsInstallConfig(t, "none", nil, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != "" {
+					t.Fatalf("expected skills disabled, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("none still uses the first skills-dir", func(t *testing.T) {
+		withSkillsInstallConfig(t, "none", []string{"./readonly"}, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != "./readonly" {
+					t.Fatalf("expected first skills dir, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("flag takes precedence over env and default", func(t *testing.T) {
+		withSkillsInstallConfig(t, "/custom", nil, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "/from-env"}, func() {
+				if got := getSkillsInstallDir(nil); got != "/custom" {
+					t.Fatalf("expected flag install dir, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("env takes precedence over default", func(t *testing.T) {
+		withSkillsInstallConfig(t, "", nil, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "/from-env", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != "/from-env" {
+					t.Fatalf("expected env install dir, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("env none disables the default", func(t *testing.T) {
+		withSkillsInstallConfig(t, "", nil, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "none", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != "" {
+					t.Fatalf("expected skills disabled from env, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("first skills-dir is used when install dir is unset", func(t *testing.T) {
+		withSkillsInstallConfig(t, "", []string{"./existing"}, func() {
+			withEnv(map[string]string{SkillsInstallDirEnvVar: "", SkillsDirEnvVar: ""}, func() {
+				if got := getSkillsInstallDir(getSkillsDirs()); got != "./existing" {
+					t.Fatalf("expected first skills dir, got %q", got)
+				}
+			})
+		})
+	})
 }
 
 func TestGetBindHost(t *testing.T) {

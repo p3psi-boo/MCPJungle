@@ -193,7 +193,7 @@ func TestRegisterSkills_ConflictsWithRegisteredServer(t *testing.T) {
 	}
 	store, err := skills.Load(nil)
 	require.NoError(t, err)
-	assert.Error(t, s.RegisterSkills(store))
+	assert.ErrorIs(t, s.RegisterSkills(store), ErrSkillsServerConflict)
 }
 
 func TestRegisterMcpServer_RejectsReservedSkillsName(t *testing.T) {

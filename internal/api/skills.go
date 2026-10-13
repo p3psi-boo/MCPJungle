@@ -12,7 +12,7 @@ import (
 )
 
 var errSkillsDisabled = fmt.Errorf(
-	"skills are not enabled; start the server with --skills-dir or --skills-install-dir: %w",
+	"skills are not enabled; start the server without --skills-install-dir none: %w",
 	apierrors.ErrInvalidInput,
 )
 

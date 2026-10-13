@@ -104,7 +104,7 @@ When the server starts it resolves the database connection in this order:
 </ParamField>
 
 <ParamField path="MCPJUNGLE_SKILLS_DIR" type="string">
-  Directories to load [Agent Skills](/guides/agent-skills) from, separated by `:` (`;` on Windows). The `--skills-dir` CLI flag takes precedence over this variable. If unset, skills are disabled.
+  Extra directories to load [Agent Skills](/guides/agent-skills) from, separated by `:` (`;` on Windows). The `--skills-dir` CLI flag takes precedence over this variable.
 
   ```bash
   export MCPJUNGLE_SKILLS_DIR=/srv/skills:/home/me/.claude/skills
@@ -113,7 +113,7 @@ When the server starts it resolves the database connection in this order:
 </ParamField>
 
 <ParamField path="MCPJUNGLE_SKILLS_INSTALL_DIR" type="string">
-  Directory that skills installed at runtime are written to. The `--skills-install-dir` CLI flag takes precedence over this variable. Defaults to the first skills directory.
+  Directory that skills installed at runtime are written to. The `--skills-install-dir` CLI flag takes precedence over this variable. Defaults to the first skills directory, or `./skills`. Set to `none` to disable skills when no skills directory is set.
 </ParamField>
 
 <ParamField path="GITHUB_TOKEN" type="string">
@@ -247,8 +247,8 @@ When the server starts it resolves the database connection in this order:
 | `POSTGRES_DB` | Database | `postgres` | PostgreSQL database name. |
 | `POSTGRES_DB_FILE` | Database | — | File path for PostgreSQL database name. |
 | `MCPJUNGLE_BIND_HOST` | Server | all interfaces | HTTP listen host or network interface. |
-| `MCPJUNGLE_SKILLS_DIR` | Server | — | Directories to load Agent Skills from (`:`-separated). |
-| `MCPJUNGLE_SKILLS_INSTALL_DIR` | Server | first skills directory | Directory skills installed at runtime are written to. |
+| `MCPJUNGLE_SKILLS_DIR` | Server | — | Extra directories to load Agent Skills from (`:`-separated). |
+| `MCPJUNGLE_SKILLS_INSTALL_DIR` | Server | `./skills` | Directory skills installed at runtime are written to. Use `none` to disable. |
 | `GITHUB_TOKEN` | Server | — | Token for installing skills from private GitHub repositories. |
 | `PORT` | Server | `8080` | HTTP listen port. |
 | `SERVER_MODE` | Server | `development` | Server mode: `development` or `enterprise`. |

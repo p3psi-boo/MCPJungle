@@ -28,11 +28,14 @@ services:
       SERVER_MODE: ${SERVER_MODE:-development}
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
       MCP_SERVER_INIT_REQ_TIMEOUT_SEC: ${MCP_SERVER_INIT_REQ_TIMEOUT_SEC:-10}
+      MCPJUNGLE_SKILLS_INSTALL_DIR: ${MCPJUNGLE_SKILLS_INSTALL_DIR:-/skills}
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
       # Mount host filesystem current directory to enable filesystem MCP server access
       - .:/host:ro
+      # Persist skills created or installed from the dashboard
+      - skills_data:/skills
       # Other options:
       # - ${HOME}:/host/home:ro
       # - /tmp:/host/tmp:rw
@@ -43,3 +46,4 @@ services:
 
 volumes:
   db_data:
+  skills_data:

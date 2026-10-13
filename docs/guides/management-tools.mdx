@@ -59,7 +59,7 @@ When [Agent Skills](/guides/agent-skills) are enabled, the management server als
 | `mcpjungle__update_skill` | Reinstalls a skill from the source it was installed from. |
 | `mcpjungle__remove_skill` | Removes a skill installed at runtime. |
 
-`edit_skill` is available whenever skills are enabled. The create, preview, install, update, and remove tools also need an install directory, which is the first `--skills-dir` or the directory set with `--skills-install-dir`. Skills from a `--skills-dir` can't be replaced or removed, but they can be edited in place. The [supported sources](/guides/agent-skills#supported-sources) are the same as on the dashboard. Created and installed skills are served right away as `skills__*` tools and prompts.
+`edit_skill` is available whenever skills are enabled. The create, preview, install, update, and remove tools also need an install directory, which defaults to `./skills`, the first `--skills-dir`, or the directory set with `--skills-install-dir`. Skills from a `--skills-dir` can't be replaced or removed, but they can be edited in place. The [supported sources](/guides/agent-skills#supported-sources) are the same as on the dashboard. Created and installed skills are served right away as `skills__*` tools and prompts.
 
 <Warning>
   Skills are instructions that other agents follow. An agent that can install skills can change what every client connected to the gateway is told to do. Give management access only to agents you trust with that.

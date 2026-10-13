@@ -39,20 +39,30 @@ Mcpjungle skips invalid skills and logs a warning for each one.
 
 ## Enable skills
 
-Point the server at one or more skill directories:
+Skills are enabled by default. `mcpjungle start` creates a `./skills` directory if needed, and the dashboard **Skills** page includes **+ Add Skill**.
+
+To also load skills that already live on disk, point the server at extra directories:
 
 ```bash
-mcpjungle start --skills-dir ./skills --skills-dir ~/.claude/skills
+mcpjungle start --skills-dir ~/.claude/skills --skills-dir /srv/shared-skills
 ```
 
 Or use the environment variable:
 
 ```bash
-export MCPJUNGLE_SKILLS_DIR=./skills:/srv/shared-skills
+export MCPJUNGLE_SKILLS_DIR=~/.claude/skills:/srv/shared-skills
 mcpjungle start
 ```
 
 Each directory can be a single skill, or contain skills at any depth. Mcpjungle ignores hidden subdirectories. If two directories provide a skill with the same name, the first one wins.
+
+Created and installed skills are written to `./skills` unless you set `--skills-install-dir` or `MCPJUNGLE_SKILLS_INSTALL_DIR`. If you pass `--skills-dir` and do not set an install directory, the first skills directory is used.
+
+To turn skills off (no `skills__*` tools and no dashboard install button), start with `--skills-install-dir none` and no `--skills-dir`:
+
+```bash
+mcpjungle start --skills-install-dir none
+```
 
 Mcpjungle reads the content of `SKILL.md` and bundled files on every request, so edits to existing skills apply immediately. If you add or remove skill folders on disk, click **Reload** on the dashboard's **Skills** page. You don't need to restart the server.
 
@@ -70,13 +80,9 @@ If the skill was installed from GitHub, saving writes `SKILL.md` on this server.
 
 ## Install skills from GitHub
 
-You can install skills at runtime, similar to `npx skills add`. Installed skills are written to the install directory. This is the first `--skills-dir` by default, or the directory you set with `--skills-install-dir` (or `MCPJUNGLE_SKILLS_INSTALL_DIR`). Setting only an install directory is enough to enable skills:
+You can install skills at runtime, similar to `npx skills add`. Installed skills are written to the install directory (`./skills` by default, the first `--skills-dir`, or the directory you set with `--skills-install-dir` / `MCPJUNGLE_SKILLS_INSTALL_DIR`).
 
-```bash
-mcpjungle start --skills-install-dir ./skills
-```
-
-If you run Mcpjungle in Docker, mount the install directory as a volume so installed skills survive container restarts.
+If you run Mcpjungle in Docker, mount the install directory as a volume so created and installed skills survive container restarts.
 
 ### From the dashboard
 

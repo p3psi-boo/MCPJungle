@@ -45,6 +45,10 @@ If you plan to run the `filesystem` stdio MCP server from inside the container, 
 </Note>
 
 <Note>
+Both compose files persist [Agent Skills](/guides/agent-skills) created or installed from the dashboard in a `skills_data` volume at `/skills`. Skills are enabled by default, so the dashboard **Skills** page includes **+ Add Skill** without extra flags.
+</Note>
+
+<Note>
 You can also run the mcpjungle image as a standalone container instead of using the Compose files provided by the repository.
 
 Keep in mind that if you do not connect Mcpjungle to a PostgreSQL database, it will create a local SQLite file inside the container.

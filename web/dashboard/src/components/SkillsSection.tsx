@@ -448,8 +448,8 @@ export function SkillsSection({ onFeedback }: { onFeedback: (feedback: SkillsFee
         emptyState={{
           title: "Skills are not enabled",
           description:
-            "Restart MCPJungle with a skills directory to serve Agent Skills to your MCP clients and install new ones from this page.",
-          commands: ["mcpjungle start --skills-install-dir ./skills"],
+            "This server was started with skills disabled. Restart MCPJungle without --skills-install-dir none so you can create and install skills from this page.",
+          commands: ["mcpjungle start"],
         }}
       />
     );
