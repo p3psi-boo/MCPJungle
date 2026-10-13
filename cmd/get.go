@@ -14,7 +14,7 @@ import (
 
 var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get entities like Prompts and Tool Groups",
+	Short: "Get entities like Prompts and Groups",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
 		"order": "1",
